@@ -53,5 +53,7 @@ test-suite.log
 *.dSYN
 
 .version
-.tar_version
+.tar_version	
 
+src/ws63flash
+lib/

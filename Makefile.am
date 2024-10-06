@@ -8,3 +8,5 @@ $(top_srcdir)/.version:
 
 dist-hook:
 	echo '$(VERSION)' > $(distdir)/.tarball-version
+	$(top_srcdir)/build-aux/gitlog-to-changelog $(top_srcdir) > $(distdir)/ChangeLog
+

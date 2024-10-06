@@ -1,0 +1,21 @@
+News for ws63flash
+====================
+
+Version 0.1.0 (2024-10-06)
+----------------------------
+* Initial Release for ws63flash
+
+Major New Features:
+-------------------
+* Support basic fwpkg flashing
+* Support on MSYS/CYGWIN and POSIX envirnoment
+
+Bug Fixes:
+----------
+
+Improvements:
+-------------
+
+Deprecations/Removals:
+----------------------
+

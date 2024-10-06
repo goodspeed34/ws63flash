@@ -1,0 +1,51 @@
+WS63FLASH(1) -- Flashing Utility for Hisilicon WS63
+
+ws63flash is a flashing utility for Hisilicon WS63 MCU developed from the
+reverse engineering of Hisilicon Official BurnTool.
+
+# Installation
+
+For Windows, install msys2 and run the following instruction inside MSYS2 MSYS.
+For GNU/Linux, run the following instruction inside a shell.
+
+Install the prerequisites:
+
+  # apt install autoconf automake gcc
+
+Build and install:
+
+  $ ./configure
+  $ make
+  $ sudo make install
+
+# How to Use
+
+Flashing a fwpkg on POSIX System (GNU/Linux, BSD...):
+
+  $ ws63flash /dev/ttyUSB0 /path/to/fwpkg
+
+On MichaelSoft Binbows, flashing with a COM port:
+
+  # ws63flash COM3 \path\to\fwpkg
+
+Selective flashing, only flash `ws63-liteos-app.bin' and mandatory bin:
+
+  $ ws63flash port /path/to/fwpkg ws63-liteos-app.bin
+
+For more infomation, check out `ws63flash --help' and ws63flash(1).
+
+# Resources
+
+  * https://gitee.com/HiSpark/fbb_ws63/tree/master/src/bootloader
+
+    Contains useful headers for return values, error values and data structures.
+
+  * https://gitee.com/HiSpark/fbb_ws63/blob/master/tools/README.md
+
+     Contains instruction for setting up HiSpark Studio. The `libburn.dll' in
+     HiSpark Studio contains important routines and data structures for flashing.
+
+  * https://gitee.com/hihope_iot/near-link/raw/master/firmware/WS63/ws63-liteos-app_all.fwpkg
+
+    A reference firmware for fwpkg parsing and flashing. But this can't be
+    flashed on Hisilicon WS63E MCU. And, `src/fwpkg.h' also documented it.
