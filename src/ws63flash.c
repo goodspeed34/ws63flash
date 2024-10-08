@@ -18,6 +18,7 @@
 
 #include <config.h>
 
+#include "baud.h"
 #include "ws63defs.h"
 #include "ymodem.h"
 #include "fwpkg.h"
@@ -61,7 +62,7 @@ static struct argp_option options[] = {
 static struct args {
 	char	*args[MAX_PARTITION_CNT+3];
 	int	 verbose;
-	long	 baud;
+	int	 baud;
 } arguments;
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
@@ -72,8 +73,28 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case 'b':
 		if (!arg)
 			argp_usage(state);
-		fprintf(stderr, "Warning: specifying a baudrate is buggy!\n");
-		args->baud = atol(arg);
+
+		int baud = atoi(arg), speed_found = 0;
+
+		for (int i = 0; i < AVAIL_BAUD_N; i++) {
+			struct baud_ipair baud_pair = avail_baud_tbl[i];
+			if (baud_pair.baud != baud) continue;
+			speed_found = 1;
+			break;
+		}
+
+		if (!speed_found) {
+			fprintf(stderr,
+				"Target baud %d not found,"
+				" maybe not supported by OS?\n"
+				"Available Baud: ", baud);
+			for (int i = 0; i < AVAIL_BAUD_N; i++)
+				printf("%d ", avail_baud_tbl[i].baud);
+			putchar('\n');
+			exit(EXIT_FAILURE);
+		}
+
+		args->baud = baud;
 		break;
 	case 'v':
 		args->verbose++;
@@ -221,20 +242,20 @@ int main (int argc, char **argv)
 		int len;
 
 		if (ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_HANDSHAKE],
-				     arguments.verbose > 1))
+				     (arguments.verbose > 2) ? 3 : 0))
 			return EXIT_FAILURE;
+
+		if (difftime(time(NULL), t0) > RESET_TIMEOUT) {
+			errno = ETIMEDOUT;
+			perror("Waiting for device reset");
+			return 1;
+		}
 
 		len = read(fd, buf, 32);
 		if (len == 0) continue;
 		if (len < 0) {
 			perror("read");
 			return EXIT_FAILURE;
-		}
-
-		if (difftime(time(NULL), t0) > RESET_TIMEOUT) {
-			errno = ETIMEDOUT;
-			perror("Waiting for device reset");
-			return 1;
 		}
 
 		/* ACK Sequence, Command 0xE1 */
@@ -264,8 +285,28 @@ int main (int argc, char **argv)
 
 	uart_read_until_magic(fd, arguments.verbose);
 
-	/* Xfer other files */
+	/* Set baud if neccessary */
 
+	if (arguments.baud == 115200) goto baud_done;
+
+	printf("Switching baud... ");
+	fflush(stdout);
+	
+	struct cmddef baudcmd = WS63E_FLASHINFO[CMD_SETBAUDR];
+	*((uint32_t *) baudcmd.dat) = htole32(arguments.baud);
+
+	ret = ws63_send_cmddef(fd, baudcmd, arguments.verbose);
+	if (ret < 0)
+		return EXIT_FAILURE;
+
+	uart_read_until_magic(fd, arguments.verbose);
+	uart_open(&fd, NULL, arguments.baud);
+
+	printf("%d\n", arguments.baud);
+	uart_read_until_magic(fd, arguments.verbose);
+	
+	/* Xfer other files */
+ baud_done:
 	for (int i = 0; i < header->cnt; i++) {
 		struct fwpkg_bin_info *bin = &bins[i];
 		if (bin->type_2 != 1) continue;
@@ -297,11 +338,20 @@ int main (int argc, char **argv)
 				  arguments.verbose);
 		if (ret < 0)
 			return EXIT_FAILURE;
+
+		/*
+		  MCU won't respond if cmd followed immediately by ymodem.
+		  Put 100ms delay here to prevent stale.
+		*/
+		usleep(100000);
 	}
 
 	printf("Done. Reseting device...\n");
 	ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST], arguments.verbose);
 
 	uart_read_until_magic(fd, arguments.verbose);
+
+	/* Reset TTY to 115200 baud/s */
+	uart_open(&fd, NULL, 115200);
 	return EXIT_SUCCESS;
 }

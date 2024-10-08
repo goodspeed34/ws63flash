@@ -58,8 +58,8 @@ const static struct cmddef WS63E_FLASHINFO[CMD_END] = {
         },
 	[CMD_SETBAUDR] = {
 		.cmd = 0x5a,
-		.dat = {0x00, 0x10, 0x0e, 0x00,  /* BAUD, 921600  */
-			0x08, 0x01, 0x00, 0x00}, /* MAGC, 0x0108 */
+		.dat = {0x00, 0x10, 0x0e, 0x00,  /* BAUD */
+			0x08, 0x01, 0x00, 0x00}, /* MAGC, 8N1? */
 		.len = 8,
 	},
 	[CMD_DOWNLOADI] = {
