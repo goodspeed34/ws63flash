@@ -82,32 +82,5 @@ struct bin_erase_info {
         size_t size;
 };
 
-const static struct bin_erase_info WS63E_ERASEINFO[] = {
-        {
-                .name = "root_params_sign.bin",
-                .size = 0x1000,
-        },
-        {
-                .name = "ssb_sign.bin",
-                .size = 0x6000
-        },
-        {
-                .name = "flashboot_sign.bin",
-                .size = 0xd000
-        },
-        {
-                .name = "flashboot_backup_sign.bin",
-                .size = 0xd000
-        },
-        {
-                .name = "ws63_all_nv.bin",
-                .size = 0x4000,
-        },
-        {
-                .name = "ws63_all_nv_backup.bin",
-                .size = 0x4000,
-        },
-};
-
 #endif	/* _WS63CHIPS_H_ */
 

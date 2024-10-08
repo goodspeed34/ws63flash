@@ -273,18 +273,10 @@ int main (int argc, char **argv)
 			continue;
 
 		struct cmddef cmd = WS63E_FLASHINFO[CMD_DOWNLOADI];
+
 		ssize_t eras_size = -1;
+		eras_size = ceil(bin->length/8192.0)*0x2000;
 
-		for (int i = 0; i < sizeof(WS63E_ERASEINFO)/sizeof(*WS63E_ERASEINFO); i++) {
-			struct bin_erase_info eras_info = WS63E_ERASEINFO[i];
-			if (strcmp(bin->name, eras_info.name)) continue;
-			eras_size = eras_info.size;
-		}
-
-		if (eras_size < 0)
-			eras_size = ceil(bin->length/4096.0)*0x1000;
-
-		printf("Erase Size: %08x\n", eras_size);
 		*((uint32_t *) (cmd.dat))     = htole32(bin->burn_addr);
 		*((uint32_t *) (cmd.dat + 4)) = htole32(bin->length);
 		*((uint32_t *) (cmd.dat + 8)) = htole32(eras_size);
