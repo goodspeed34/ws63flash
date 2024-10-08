@@ -108,45 +108,82 @@ static inline int uart_open (int *fd, const char *ttydev, int baud)
 
 static inline int uart_read_until_magic(int fd, int verbose)
 {
-	const uint32_t magic = htole32(0xdeadbeef);
+	char occ, *mgc = "\xef\xbe\xad\xde";
+	uint8_t buf[1024+12];
+	int len = 0, i = 0, framelen = 0, st = 0;
 	time_t t0 = time(NULL);
-	char occ;
+
+	memset(buf, 0, sizeof(buf));
 
 	if (verbose) printf("< ");
 
 	while (1)
 	{
-		uint8_t buf[32], *needle = NULL;
-		int len;
+		/* Abort if too far away from the last valid read */
+		if (difftime(time(NULL), t0) > UART_READ_TIMEOUT) {
+			errno = ETIMEDOUT;
+			perror("uart_read_until_magic");
+			return -errno;
+		}
 
-		len = read(fd, buf, 32);
+		len = read(fd, buf+i, 1);
 		if (len == 0) continue;
 		if (len < 0) {
 			perror("read");
 			return -errno;
 		}
 
-		needle = (unsigned char *)
-			memmem(buf, len, &magic, sizeof(magic));
+		/* Update last valid char timer */
+		t0 = time(NULL);
 
-		if (verbose) {
-			for (int i = 0; i < len; i++) {
+		switch (st) {
+		case 0:
+			if ((uint8_t) mgc[i] == buf[i]) {
+				if (++i >= 3) st = 1;
+				continue;
+			}
+
+			if (i >= 3) {
+				st = 1;
+				continue;
+			}
+
+			i = 0;
+
+			if (verbose) {
+				/* if not and verbose enabled, print it */
 				if (isascii(buf[i]) && isprint(buf[i]))
 					printf("%c", (occ = buf[i]));
 				if (buf[i] == '\n' && occ != '\n')
 					printf("%c< ", (occ = buf[i]));
                                 fflush(stdout);
 			}
+
+			continue;
+		case 1:
+			if (i == 5) /* 4:5 are the length to be read */
+				framelen = le16toh(*(uint16_t *)(buf + 4));
+			else if (i == framelen-1) /* reached the end */
+				break;
+			i++;
+		        continue;
+		default:
+			st = 0;
+			continue;
 		}
 
-		if (needle)
+		if (verbose > 1) {
+			printf("\n< ");
+			for (int j = 0; j < i+1; j++)
+				printf("%02x ", buf[j]);
+		}
+
+		if (*(uint16_t *) (buf+framelen-2) != htole16(crc16_xmodem(buf, framelen-2))) {
+			fprintf(stderr, "Warning: bad crc from cmd frame!\n");
 			break;
-
-		if (difftime(time(NULL), t0) > UART_READ_TIMEOUT) {
-			errno = ETIMEDOUT;
-			perror("uart_read_until_magic");
-			return -errno;
 		}
+
+		break;
 	}
 
 	if (verbose) printf("\n");
@@ -183,7 +220,7 @@ static inline int ws63_send_cmddef(int fd, struct cmddef cmddef, int verbose)
 		written += wrote;
 	}
 
-	if (verbose) {
+	if (verbose > 1) {
 		printf("> ");
 		for (int i = 0; i < total_bytes; i++)
 			printf("%02x ", buf[i]);
