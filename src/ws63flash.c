@@ -19,9 +19,9 @@
 #include <config.h>
 
 #include "ws63defs.h"
-#include "ws63flash.h"
 #include "ymodem.h"
 #include "fwpkg.h"
+#include "io.h"
 
 #include <endian.h>
 #include <math.h>
@@ -208,7 +208,8 @@ int main (int argc, char **argv)
         }
 #endif
 
-	ret = uart_open(&fd, arguments.args[0], B115200);
+	/* 115200 baud, default baud for MCU */
+	ret = uart_open(&fd, arguments.args[0], 115200);
 	if (ret < 0 || fd < 0) return EXIT_FAILURE;
 
 	/* Handshake to enter YModem Mode */

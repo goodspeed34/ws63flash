@@ -31,7 +31,9 @@ AC_CHECK_LIB([m], [ceil])
 
 # Checks for header files.
 AC_CHECK_DECLS([B115200],[], AC_MSG_ERROR([B115200 not supported by header]), [[#include <termios.h>]])
-AC_CHECK_DECLS([B115200, B230400, B460800, B500000, B576000, B921600],[], [], [[#include <termios.h>]])
+
+# Non-POSIX baudrates
+AC_CHECK_DECLS([B230400, B460800, B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000],[], [], [[#include <termios.h>]])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE

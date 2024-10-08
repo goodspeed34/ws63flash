@@ -150,7 +150,7 @@ blk_xmit:
 		return -errno;
 	}
 
-	ret = ymodem_blk_xmit(fd, blk, len);	
+	ret = ymodem_blk_xmit(fd, blk, len);
 	if (ret < 0)
 		return ret;
 
@@ -173,7 +173,7 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 	int ret, pgbk = 0;
 
 	/* Waiting for C */
-	if (verbose) printf("< ");	
+	if (verbose) printf("< ");
 	while (1) {
 		ret = read(fd, &cc, 1);
 
@@ -199,7 +199,7 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 
 	/* Display current progress */
 	pgbk = 2;		/* "0%" */
-	printf("Xfer %s (0x%zx B, %d BLKS) 0%%", fn, len, total_blk);
+	printf("Xfer %s (0x%zx B, %d BLK) 0%%", fn, len, total_blk);
 	fflush(stdout);
 
 	/* Block 0: File Info */
@@ -214,7 +214,7 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 
 	*((uint16_t *) (blkbuf + 131)) = htobe16(crc16_xmodem(blkbuf+3, 128));
 
-	ret = ymodem_blk_timed_xmit(fd, blkbuf, 128+5);	
+	ret = ymodem_blk_timed_xmit(fd, blkbuf, 128+5);
 	if (ret < 0)
 		return ret;
 
@@ -241,12 +241,12 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 		*((uint16_t *) (blkbuf + 1027)) = \
 			htobe16(crc16_xmodem(blkbuf+3, 1024));
 
-		ret = ymodem_blk_timed_xmit(fd, blkbuf, 1029);	
+		ret = ymodem_blk_timed_xmit(fd, blkbuf, 1029);
 		if (ret < 0)
 			return ret;
 
 		wrote_bytes += rlen;
-		
+
 		for (int i = 0; i < pgbk; i++)
 			putchar('\b');
 		pgbk = printf("%zu%%", wrote_bytes*100/len);
@@ -278,7 +278,7 @@ eot_xmit:
 	blkbuf[0] = SOH; blkbuf[1] = 0x00; blkbuf[2] = 0xff;
 	*((uint16_t *) (blkbuf + 131)) = htobe16(crc16_xmodem(blkbuf+3, 128));
 
-	ret = ymodem_blk_timed_xmit(fd, blkbuf, 128+5);	
+	ret = ymodem_blk_timed_xmit(fd, blkbuf, 128+5);
 	if (ret < 0)
 		return ret;
 

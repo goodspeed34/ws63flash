@@ -1,5 +1,5 @@
 /*
-  ws63flash.h - WS63 Flash Functions & Macros
+  io.h - WS63 Flash IO Functions & Macros
   Copyright (C) 2024  Gong Zhile
 
   This program is free software: you can redistribute it and/or modify
@@ -16,13 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef _WS63_FLASH_H_
-#define _WS63_FLASH_H_
+#ifndef _WS63_FLASH_IO_H_
+#define _WS63_FLASH_IO_H_
 
 #include "config.h"
 
 #include "ws63defs.h"
 #include "ymodem.h"
+#include "baud.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -43,7 +44,7 @@
 
 #define SWAP_CMD(x) (((x) << 4) | ((x) >> 4))
 
-static inline int uart_open (int *fd, const char *ttydev, speed_t speed)
+static inline int uart_open (int *fd, const char *ttydev, int baud)
 {
 	struct termios tty;
 
@@ -58,6 +59,26 @@ static inline int uart_open (int *fd, const char *ttydev, speed_t speed)
 	if (tcgetattr(*fd, &tty) < 0) {
 		perror("tcgetattr");
 		return -errno;
+	}
+
+	speed_t speed = B115200;
+	int speed_found = 0;
+
+	for (int i = 0; i < AVAIL_BAUD_N; i++) {
+		struct baud_ipair baud_pair = avail_baud_tbl[i];
+		if (baud_pair.baud != baud) continue;
+
+		speed = baud_pair.speed;
+		speed_found = 1;
+		break;
+	}
+
+	if (!speed_found) {
+		fprintf(stderr,
+			"failed to switch to baud %d,"
+			"maybe your system doesn't support it?\n",
+			baud);
+		return -EINVAL;
 	}
 
 	cfsetospeed(&tty, speed);
@@ -172,4 +193,4 @@ static inline int ws63_send_cmddef(int fd, struct cmddef cmddef, int verbose)
 	return 0;
 }
 
-#endif /* _WS63_FLASH_H_ */
+#endif /* _WS63_FLASH_IO_H_ */

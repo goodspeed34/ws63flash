@@ -216,9 +216,25 @@
 /* Define to 1 if C supports variable-length arrays. */
 #undef HAVE_C_VARARRAYS
 
+/* Define to 1 if you have the declaration of 'B1000000', and to 0 if you
+   don't. */
+#undef HAVE_DECL_B1000000
+
 /* Define to 1 if you have the declaration of 'B115200', and to 0 if you
    don't. */
 #undef HAVE_DECL_B115200
+
+/* Define to 1 if you have the declaration of 'B1152000', and to 0 if you
+   don't. */
+#undef HAVE_DECL_B1152000
+
+/* Define to 1 if you have the declaration of 'B1500000', and to 0 if you
+   don't. */
+#undef HAVE_DECL_B1500000
+
+/* Define to 1 if you have the declaration of 'B2000000', and to 0 if you
+   don't. */
+#undef HAVE_DECL_B2000000
 
 /* Define to 1 if you have the declaration of 'B230400', and to 0 if you
    don't. */
