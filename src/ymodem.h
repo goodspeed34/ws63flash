@@ -170,7 +170,7 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 	uint8_t blkbuf[1029], cc, occ;
 	size_t last_blk = (last_blk = len - ((len/1024)*1024)) ? last_blk : 1024;
 	time_t t0 = time(NULL);
-	int ret;
+	int ret, pgbk = 0;
 
 	/* Waiting for C */
 	if (verbose) printf("< ");	
@@ -198,8 +198,8 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 	if (verbose && occ != '\n') printf("\n");
 
 	/* Display current progress */
-
-	printf("Xfer: %s (0x%zx)", fn, len);
+	pgbk = 2;		/* "0%" */
+	printf("Xfer %s (0x%zx B, %d BLKS) 0%%", fn, len, total_blk);
 	fflush(stdout);
 
 	/* Block 0: File Info */
@@ -218,21 +218,20 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 	if (ret < 0)
 		return ret;
 
-	printf(",");
-	fflush(stdout);
-
 	i_blk++;
 
 	/* Data Blocks: File Data */
+	size_t wrote_bytes = 0;
 
 	while (i_blk < total_blk+1) {
+		size_t rlen = (i_blk == total_blk) ? last_blk : 1024;
 		memset(blkbuf, 0, sizeof(blkbuf));
 
 		blkbuf[0] = STX;
 		blkbuf[1] = i_blk % 0x100;
 		blkbuf[2] = 0xff - (blkbuf[1]);
 
-		ret = fread(blkbuf+3, 1, (i_blk == total_blk) ? last_blk : 1024, f);
+		ret = fread(blkbuf+3, 1, rlen, f);
 		if (i_blk < total_blk && ret < 1024) {
 			printf("\nERROR: No data left on file.");
 			fflush(stdout);
@@ -246,13 +245,18 @@ ymodem_xfer(int fd, FILE *f, const char *fn, size_t len, int verbose)
 		if (ret < 0)
 			return ret;
 
-		printf(".");
+		wrote_bytes += rlen;
+		
+		for (int i = 0; i < pgbk; i++)
+			putchar('\b');
+		pgbk = printf("%zu%%", wrote_bytes*100/len);
 		fflush(stdout);
 
 		i_blk++;
 	}
 
 	/* EOT */
+
 	char eot = EOT;
 
 eot_xmit:
@@ -268,9 +272,6 @@ eot_xmit:
 	if (ret > 0)
 		goto eot_xmit;
 
-	printf(",");
-	fflush(stdout);
-
 	/* Block 0: Finish Xmit */
 
 	memset(blkbuf, 0, sizeof(blkbuf));
@@ -281,7 +282,7 @@ eot_xmit:
 	if (ret < 0)
 		return ret;
 
-	printf(",\n");
+	putchar('\n');
 	return EXIT_SUCCESS;
 }
 

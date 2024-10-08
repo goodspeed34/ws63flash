@@ -7,6 +7,24 @@ Version 0.1.0 (2024-10-06)
 
 Major New Features:
 -------------------
+
+Bug Fixes:
+----------
+
+Improvements:
+-------------
+* Support displaying percentage of progress instead of printing dots
+
+Deprecations/Removals:
+----------------------
+* Removed erase size table, alligned erase size to 2K
+
+Version 0.1.0 (2024-10-06)
+----------------------------
+* Initial Release for ws63flash
+
+Major New Features:
+-------------------
 * Support basic fwpkg flashing
 * Support on MSYS/CYGWIN and POSIX envirnoment
 
