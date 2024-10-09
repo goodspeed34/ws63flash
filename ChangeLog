@@ -1,3 +1,25 @@
+2024-10-09  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	Prepare for v0.2.0 release
+
+	Support erasing flash, Adopting new command line style
+
+2024-10-08  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	src/io.h: Introduce robust UART frame reading
+
+	src/ws63flash.c: Support switching baud rate
+
+	src/{baud,io}.h: refactored IO handling to accept baud rate input
+
+	src/ymodem.h: Support displaying percentage of progress instead of printing dots
+
+	src/{ws63flash.c,ws63defs.h}: remove bin erase size map, aligned erase size with 2K
+
 2024-10-06  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	Add automated CI build with Github CI on MSYS2
+
+	Finish necessary documentation for v0.1.0
 
 	Initial Commit for Releasing v0.1.0

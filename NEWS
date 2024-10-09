@@ -1,23 +1,29 @@
 News for ws63flash
 ====================
 
-Version 0.1.0 (2024-10-06)
+
+Version 0.2.0 (2024-10-09)
 ----------------------------
-* Initial Release for ws63flash
+* Improvement > BurnTool
 
 Major New Features:
 -------------------
+* Adopting new command line style ([OPTIONS...] [VERB] ...)
+* Support erasing flash
 
 Bug Fixes:
 ----------
+* Fixed baud option not applied on 0.1.0
 
 Improvements:
 -------------
 * Support displaying percentage of progress instead of printing dots
+* Make the receiving of command frame more robust
 
 Deprecations/Removals:
 ----------------------
 * Removed erase size table, alligned erase size to 2K
+
 
 Version 0.1.0 (2024-10-06)
 ----------------------------
