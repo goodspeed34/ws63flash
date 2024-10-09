@@ -49,17 +49,25 @@ const char	*argp_program_version	  =
 const char	*argp_program_bug_address = PACKAGE_BUGREPORT;
 
 static char	doc[]	   = PACKAGE " -- flashing utility for Hisilicon WS63";
-static char	args_doc[] = "TTY FWPKG [BIN...]";
+static char	args_doc[] =
+	"--flash TTY FWPKG [BIN...]\n"
+	"--erase TTY FWPKG";
 
 static struct argp_option options[] = {
-	{"baud", 'b', "BAUDRATE", OPTION_ARG_OPTIONAL,
-	 "set the flashing serial baudrate", 0},
+	{"flash", 'f', 0, 0,
+	 "flash a fwpkg file", 0},
+	{"erase", 'e', 0, 0,
+	 "erase the flash memory", 0},
+
+	{"baud", 'b', "BAUDRATE", 0,
+	 "set the flashing serial baudrate", 1},
 	{"verbose", 'v', 0, 0,
-	 "verbosely output the interactions", 0},
+	 "verbosely output the interactions", 1},
 	{0},
 };
 
 static struct args {
+	char	 verb;
 	char	*args[MAX_PARTITION_CNT+3];
 	int	 verbose;
 	int	 baud;
@@ -99,13 +107,21 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case 'v':
 		args->verbose++;
 		break;
+	case 'f':
+	case 'w':
+	case 'e':
+		if (args->verb)
+			argp_usage(state); /* Verb already set, Bail out */
+		args->verb = key;
 	case ARGP_KEY_ARG:
-		if (state->arg_num >= MAX_PARTITION_CNT)
+		if ((args->verb == 'f' && state->arg_num >= MAX_PARTITION_CNT)
+		    || (args->verb == 'e' && state->arg_num > 1))
 			argp_usage(state);
 		args->args[state->arg_num] = arg;
 		break;
 	case ARGP_KEY_END:
-		if (state->arg_num < 2)
+		if ((args->verb == 'f' && state->arg_num < 2)
+		    || (args->verb == 'e' && state->arg_num < 2))
 			argp_usage(state);
 		break;
 	default:
@@ -141,18 +157,11 @@ static int bin_in_args(const char *s, struct args *args) {
 	return found;
 };
 
-int main (int argc, char **argv)
-{
+int verb_flash(int fd) {
 	time_t t0;
-	int fd = -1, ret;
-
-	arguments.baud	  = 115200;
-	arguments.verbose = 0;
-
-	argp_parse(&argp, argc, argv, 0, 0, &arguments);
+	int ret;
 
 	/* Stage 0: Reading FWPKG file & Locate reuqired bin */
-
 	FILE *fw = fopen(arguments.args[1], "r");
 	if (!fw) {
 		perror("fopen");
@@ -214,24 +223,6 @@ int main (int argc, char **argv)
 	}
 
 	/* Stage 1: Flash loaderboot */
-
-#ifdef __CYGWIN__
-        int uart_len = strlen(arguments.args[0]);
-
-        if (!strncasecmp(arguments.args[0], "COM", 3)) {
-                char *uart_str = malloc(uart_len+11);
-                if (!uart_str) return EXIT_FAILURE;
-
-                int uart_num = atoi(arguments.args[0]+3);
-                snprintf(uart_str, uart_len+11, "/dev/ttyS%d", uart_num-1);
-
-                arguments.args[0] = uart_str;
-        }
-#endif
-
-	/* 115200 baud, default baud for MCU */
-	ret = uart_open(&fd, arguments.args[0], 115200);
-	if (ret < 0 || fd < 0) return EXIT_FAILURE;
 
 	/* Handshake to enter YModem Mode */
 
@@ -350,8 +341,150 @@ int main (int argc, char **argv)
 	ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST], arguments.verbose);
 
 	uart_read_until_magic(fd, arguments.verbose);
+	return 0;
+}
+
+int verb_erase(int fd) {
+	time_t t0;
+	int ret;
+
+	/* Stage 0: Reading FWPKG file & Locate reuqired bin */
+	FILE *fw = fopen(arguments.args[1], "r");
+	if (!fw) {
+		perror("fopen");
+		return EXIT_FAILURE;
+	}
+
+	struct fwpkg_header *header = fwpkg_read_header(fw);
+	if (!header) return EXIT_FAILURE;
+
+	struct fwpkg_bin_info *bins = fwpkg_read_bin_infos(fw, header);
+	if (!bins) return EXIT_FAILURE;
+
+	struct fwpkg_bin_info *loaderboot = NULL;
+	for (int i = 0; i < header->cnt; i++)
+		if (bins[i].type_2 == 0)
+			loaderboot = &bins[i];
+	if (!loaderboot) {
+		fprintf(stderr, "Required loaderboot not found in fwpkg!\n");
+		return EXIT_FAILURE;
+	}
+
+	/* Stage 1: Flash loaderboot */
+
+	/* Handshake to enter YModem Mode */
+
+	printf("Waiting for device reset...\n");
+	t0 = time(NULL);
+	while (1) {
+		uint8_t buf[32];
+		int len;
+
+		if (ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_HANDSHAKE],
+				     (arguments.verbose > 2) ? 3 : 0))
+			return EXIT_FAILURE;
+
+		if (difftime(time(NULL), t0) > RESET_TIMEOUT) {
+			errno = ETIMEDOUT;
+			perror("Waiting for device reset");
+			return 1;
+		}
+
+		len = read(fd, buf, 32);
+		if (len == 0) continue;
+		if (len < 0) {
+			perror("read");
+			return EXIT_FAILURE;
+		}
+
+		/* ACK Sequence, Command 0xE1 */
+		char ack[] = "\xEF\xBE\xAD\xDE\x0C\x00\xE1\x1E\x5A\x00";
+		uint8_t *needle = NULL;
+
+		needle = memmem(buf, len, ack, sizeof(ack)-1);
+		if (needle) {
+			printf("Establishing ymodem session...\n");
+			break;
+		}
+	}
+
+	/* Entered YModem Mode, Xfer loaderBoot */
+
+	if (fseek(fw, loaderboot->offset, SEEK_SET) < 0) {
+		perror("fseek");
+		return EXIT_FAILURE;
+	}
+
+	ret = ymodem_xfer(fd, fw,
+			  loaderboot->name,
+			  loaderboot->length,
+			  arguments.verbose);
+	if (ret < 0)
+		return EXIT_FAILURE;
+
+	uart_read_until_magic(fd, arguments.verbose);
+
+	printf("Erasing flash....\n");
+	if (ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_DOWNLOADI],
+			     arguments.verbose) < 0)
+		return EXIT_FAILURE;
+	uart_read_until_magic(fd, arguments.verbose);
+
+	printf("Done. Reseting device...\n");
+	ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST], arguments.verbose);
+
+	uart_read_until_magic(fd, arguments.verbose);
+	return 0;
+}
+
+int main (int argc, char **argv)
+{
+	time_t t0;
+	int fd = -1, ret;
+
+	arguments.verb	  = 0;
+	arguments.baud	  = 115200;
+	arguments.verbose = 0;
+
+	argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+	if (!arguments.verb) {
+		argp_help(&argp, stderr, ARGP_HELP_SHORT_USAGE, PACKAGE_NAME);
+		return EXIT_FAILURE;
+	}
+
+#ifdef __CYGWIN__
+        int uart_len = strlen(arguments.args[0]);
+
+        if (!strncasecmp(arguments.args[0], "COM", 3)) {
+                char *uart_str = malloc(uart_len+11);
+                if (!uart_str) return EXIT_FAILURE;
+
+                int uart_num = atoi(arguments.args[0]+3);
+                snprintf(uart_str, uart_len+11, "/dev/ttyS%d", uart_num-1);
+
+                arguments.args[0] = uart_str;
+        }
+#endif
+
+	/* 115200 baud, default baud for MCU */
+	ret = uart_open(&fd, arguments.args[0], 115200);
+	if (ret < 0 || fd < 0) return EXIT_FAILURE;
+
+	ret = EXIT_SUCCESS;
+	switch (arguments.verb) {
+	case 'f':
+		ret = verb_flash(fd);
+		break;
+	case 'e':
+		ret = verb_erase(fd);
+		break;
+	default:
+		argp_help(&argp, stderr, ARGP_HELP_SHORT_USAGE, PACKAGE_NAME);
+		return EXIT_FAILURE;
+	}
 
 	/* Reset TTY to 115200 baud/s */
 	uart_open(&fd, NULL, 115200);
-	return EXIT_SUCCESS;
+	return ret;
 }
