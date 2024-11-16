@@ -1,46 +1,47 @@
-WS63FLASH(1) -- 海思 WS63 芯片刷写工具
+WS63FLASH(1) -- Flashing Utility for Hisilicon WS63
 
-(English version available at file `README.en')
+(中文版本在 README 文件中)
 
-ws63flash 是通过反向海思官方烧录工具 (BurnTool) 实现的海思 WS63 烧写工具。
+ws63flash is a flashing utility for Hisilicon WS63 MCU developed from the
+reverse engineering of Hisilicon Official BurnTool.
 
-# 安装
+# Installation
 
-在 Microsoft Windows 上，需要先安装 MSYS2 并在其 MSYS 环境 (MSYS2 MSYS) 下运行：
+For Windows, install msys2 and run the following instruction inside MSYS2 MSYS.
 
   # pacman -S autoconf automake gcc make
 
-在 GNU/Linux 上，执行以下命令：
+For GNU/Linux, run the following instruction inside a shell.
 
   # apt install autoconf automake gcc make
 
-构建并安装：
+Build and install:
 
   $ ./configure
   $ make
   $ sudo make install
 
-# 使用方法
+# How to Use
 
-在兼容 POSIX 的系统 (GNU/Linux, BSD 等) 上刷写 fwpkg：
+Flashing a fwpkg on POSIX System (GNU/Linux, BSD...):
 
   $ ws63flash --flash /dev/ttyUSB0 /path/to/fwpkg
 
-在 MichaelSoft Binbows 上需要使用 COM 口刷写：
+On MichaelSoft Binbows, flashing with a COM port:
 
   # ws63flash --flash COM3 \path\to\fwpkg
 
-选择性刷写，只刷写 `ws63-liteos-app.bin' 和刷写所需的必要文件：
+Selective flashing, only flash `ws63-liteos-app.bin' and mandatory bin:
 
   $ ws63flash --flash PORT /path/to/fwpkg ws63-liteos-app.bin
 
-擦除板上内存：
+Erasing the flash memory on board:
 
   $ ws63flash --erase PORT /path/to/fwpkg
 
-更多信息请参见 `ws63flash --help' 以及 ws63flash(1) 手册页。
+For more infomation, check out `ws63flash --help' and ws63flash(1).
 
-# 参考资源
+# Resources
 
   * https://gitee.com/HiSpark/fbb_ws63/tree/master/src/bootloader
 
