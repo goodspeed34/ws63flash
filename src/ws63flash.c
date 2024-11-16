@@ -26,6 +26,7 @@
 
 #include <endian.h>
 #include <math.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -51,6 +52,7 @@ const char	*argp_program_bug_address = PACKAGE_BUGREPORT;
 static char	doc[]	   = PACKAGE " -- flashing utility for Hisilicon WS63";
 static char	args_doc[] =
 	"--flash TTY FWPKG [BIN...]\n"
+	"--write TTY LOADERBOOT [BIN@ADDR...]\n"
 	"--erase TTY FWPKG";
 
 static struct argp_option options[] = {
@@ -58,6 +60,8 @@ static struct argp_option options[] = {
 	 "flash a fwpkg file", 0},
 	{"erase", 'e', 0, 0,
 	 "erase the flash memory", 0},
+	{"write", 'w', 0, 0,
+	 "write bin(s) to specific address", 0},
 
 	{"baud", 'b', "BAUDRATE", 0,
 	 "set the flashing serial baudrate", 1},
@@ -69,6 +73,7 @@ static struct argp_option options[] = {
 static struct args {
 	char	 verb;
 	char	*args[MAX_PARTITION_CNT+3];
+	int	 args_cnt;
 	int	 verbose;
 	int	 baud;
 } arguments;
@@ -113,14 +118,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		if (args->verb)
 			argp_usage(state); /* Verb already set, Bail out */
 		args->verb = key;
+		break;
 	case ARGP_KEY_ARG:
 		if ((args->verb == 'f' && state->arg_num >= MAX_PARTITION_CNT)
+		    || (args->verb == 'w' && state->arg_num >= MAX_PARTITION_CNT)
 		    || (args->verb == 'e' && state->arg_num > 1))
 			argp_usage(state);
 		args->args[state->arg_num] = arg;
 		break;
 	case ARGP_KEY_END:
+		args->args_cnt = state->arg_num;
 		if ((args->verb == 'f' && state->arg_num < 2)
+		    || (args->verb == 'w' && state->arg_num < 3)
 		    || (args->verb == 'e' && state->arg_num < 2))
 			argp_usage(state);
 		break;
@@ -344,6 +353,186 @@ int verb_flash(int fd) {
 	return 0;
 }
 
+struct wobj {
+	char	*name;
+	size_t   length;
+	size_t	 addr;
+};
+
+int verb_write(int fd) {
+	time_t t0;
+	FILE *fw;
+	int ret;
+
+	/* Parsing input arguments */
+	struct wobj wobjs[MAX_PARTITION_CNT];
+
+	for (int i = 1; i < arguments.args_cnt; i++) {
+		char *arg_current = arguments.args[i];
+		struct wobj *wobj_current = &wobjs[i-1];
+		char *sep = strchr(arg_current, '@');
+
+		if (!sep && i > 1) {
+			fprintf(stderr,
+				"Error: address needed for %s (HINT: %s@addr)\n",
+				arg_current, arg_current);
+			return EXIT_FAILURE;
+		}
+
+		wobj_current->name = arg_current;
+
+		if (sep) {
+			*sep = '\0';
+			if (sscanf(sep+1, "%zx", &wobj_current->addr) != 1) {
+				fprintf(stderr, "Error: invalid address %s for %s\n",
+					sep+1, arg_current);
+				return EXIT_FAILURE;
+			}
+		}
+
+		struct stat st;
+
+		ret = stat(wobj_current->name, &st);
+		if (ret < 0) {
+			perror(wobj_current->name);
+			return ret;
+		}
+
+		wobj_current->length = st.st_size;
+	}
+
+	printf("+-+-------------------------------+----------+----------+-+\n");
+	printf("|F|BIN NAME                       |LENGTH    |BURN ADDR |T|\n");
+	printf("+-+-------------------------------+----------+----------+-+\n");
+	for (int i = 0; i < arguments.args_cnt-1; i++) {
+		struct wobj *wobj_current = &wobjs[i];
+		char flash_flag;
+		int type_2;
+
+		flash_flag = (i == 0) ? '!' : '*';
+		type_2 = (i == 0) ? 0 : 1;
+
+		printf("|%c|%-31s|0x%08zx|0x%08zx|%d|\n",
+		       flash_flag,
+		       basename(wobj_current->name),
+		       wobj_current->length,
+		       wobj_current->addr, type_2);
+	}
+	printf("+-+-------------------------------+----------+----------+-+\n");
+
+	/* Stage 1: Flash loaderboot */
+
+	/* Handshake to enter YModem Mode */
+
+	printf("Waiting for device reset...\n");
+	t0 = time(NULL);
+	while (1) {
+		uint8_t buf[32];
+		int len;
+
+		if (ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_HANDSHAKE],
+				     (arguments.verbose > 2) ? 3 : 0))
+			return EXIT_FAILURE;
+
+		if (difftime(time(NULL), t0) > RESET_TIMEOUT) {
+			errno = ETIMEDOUT;
+			perror("Waiting for device reset");
+			return 1;
+		}
+
+		len = read(fd, buf, 32);
+		if (len == 0) continue;
+		if (len < 0) {
+			perror("read");
+			return EXIT_FAILURE;
+		}
+
+		/* ACK Sequence, Command 0xE1 */
+		char ack[] = "\xEF\xBE\xAD\xDE\x0C\x00\xE1\x1E\x5A\x00";
+		uint8_t *needle = NULL;
+
+		needle = memmem(buf, len, ack, sizeof(ack)-1);
+		if (needle) {
+			printf("Establishing ymodem session...\n");
+			break;
+		}
+	}
+
+	/* Entered YModem Mode, Xfer loaderBoot */
+	fw = fopen(wobjs[0].name, "r");
+	if (!fw) { perror(wobjs[0].name); return errno; }
+
+	ret = ymodem_xfer(fd, fw,
+			  basename(wobjs[0].name),
+			  wobjs[0].length,
+			  arguments.verbose);
+	if (ret < 0)
+		return EXIT_FAILURE;
+
+	uart_read_until_magic(fd, arguments.verbose);
+
+	/* Set baud if neccessary */
+
+	if (arguments.baud == 115200) goto baud_done;
+
+	printf("Switching baud... ");
+	fflush(stdout);
+
+	struct cmddef baudcmd = WS63E_FLASHINFO[CMD_SETBAUDR];
+	*((uint32_t *) baudcmd.dat) = htole32(arguments.baud);
+
+	ret = ws63_send_cmddef(fd, baudcmd, arguments.verbose);
+	if (ret < 0)
+		return EXIT_FAILURE;
+
+	uart_read_until_magic(fd, arguments.verbose);
+	uart_open(&fd, NULL, arguments.baud);
+
+	printf("%d\n", arguments.baud);
+	uart_read_until_magic(fd, arguments.verbose);
+
+	/* Xfer other files */
+ baud_done:
+	for (int i = 1; i < arguments.args_cnt-1; i++) {
+		struct wobj *wobj_current = &wobjs[i];
+		struct cmddef cmd = WS63E_FLASHINFO[CMD_DOWNLOADI];
+
+		ssize_t eras_size = -1;
+		eras_size = ceil(wobj_current->length/8192.0)*0x2000;
+
+		*((uint32_t *) (cmd.dat))     = htole32(wobj_current->addr);
+		*((uint32_t *) (cmd.dat + 4)) = htole32(wobj_current->length);
+		*((uint32_t *) (cmd.dat + 8)) = htole32(eras_size);
+
+		if (ws63_send_cmddef(fd, cmd, arguments.verbose) < 0)
+			return EXIT_FAILURE;
+
+		uart_read_until_magic(fd, arguments.verbose);
+
+		fw = fopen(wobj_current->name, "r");
+		if (!fw) { perror(wobj_current->name); return errno; }
+
+		ret = ymodem_xfer(fd, fw,
+				  basename(wobj_current->name),
+				  wobj_current->length,
+				  arguments.verbose);
+		if (ret < 0)
+			return EXIT_FAILURE;
+
+		/*
+		  MCU won't respond if cmd followed immediately by ymodem.
+		  Put 100ms delay here to prevent stale.
+		*/
+		usleep(100000);
+	}
+
+	printf("Done. Reseting device...\n");
+	ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST], arguments.verbose);
+
+	uart_read_until_magic(fd, arguments.verbose);
+	return 0;
+}
+
 int verb_erase(int fd) {
 	time_t t0;
 	int ret;
@@ -475,6 +664,9 @@ int main (int argc, char **argv)
 	switch (arguments.verb) {
 	case 'f':
 		ret = verb_flash(fd);
+		break;
+	case 'w':
+		ret = verb_write(fd);
 		break;
 	case 'e':
 		ret = verb_erase(fd);

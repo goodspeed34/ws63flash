@@ -35,6 +35,12 @@ Selective flashing, only flash `ws63-liteos-app.bin' and mandatory bin:
 
   $ ws63flash --flash PORT /path/to/fwpkg ws63-liteos-app.bin
 
+Binary flashing, flash binaries that wasn't packed yet:
+
+  $ ws63flash --write PORT root_loaderboot_sign.bin \
+            ws63-liteos-app-sign.bin@0x230000 \
+	    flashboot_sign.bin@0x220000
+
 Erasing the flash memory on board:
 
   $ ws63flash --erase PORT /path/to/fwpkg

@@ -1,6 +1,10 @@
 News for ws63flash
 ====================
 
+Major New Features:
+-------------------
+* Support writing bin(s) to specific address
+
 Improvements:
 -------------
 * Create Chinese README and default to the Chinese Ver.
