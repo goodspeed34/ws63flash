@@ -1,10 +1,22 @@
-.TH WS63FLASH 1 "October 2024" "0.1.0"
+.TH WS63FLASH 1 "October 2024" "0.2.0"
 .SH NAME
 ws63flash \- flashing utility for Hisilicon WS63
 
 .SH SYNOPSIS
 .B ws63flash
-[\fIOPTION...\fR] \fITTY FWPKG\fR [\fIBIN...\fR]
+[\fIOPTION...\fR] --flash \fITTY FWPKG\fR [\fIBIN...\fR]
+
+.B ws63flash
+[\fIOPTION...\fR] --erase \fITTY FWPKG\fR
+
+.SH ACTIONS
+.TP
+.B \-f, --flash
+flash a fwpkg file
+
+.TP
+.B \-e, --erase
+erase the flash memory
 
 .SH OPTIONS
 .TP
