@@ -1,6 +1,14 @@
 News for ws63flash
 ====================
 
+Improvements:
+-------------
+* Create Chinese README and default to the Chinese Ver.
+* Update README and ws63flash(1) manual
+
+Bug Fixes:
+----------
+* Fixed compilation error on OpenBSD
 
 Version 0.2.0 (2024-10-09)
 ----------------------------

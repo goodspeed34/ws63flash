@@ -36,7 +36,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include <termio.h>
+#include <termios.h>
 #include <errno.h>
 #include <fcntl.h>
 
