@@ -1,6 +1,10 @@
 News for ws63flash
 ====================
 
+Version 0.3.0 (2024-11-16)
+----------------------------
+* Beyond~~~
+
 Major New Features:
 -------------------
 * Support writing bin(s) to specific address

@@ -1,3 +1,13 @@
+2024-11-16  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	src/ws63flash.c: Support writing bin(s) to specific address
+
+	src/io.h: Fixed compilation error on OpenBSD
+
+	Create Chinese README and default to the Chinese Ver.
+
+	Update README and ws63flash(1) manual, Clearify the build dependencies (#1)
+
 2024-10-09  Gong Zhile  <gongzl@stu.hebust.edu.cn>
 
 	Prepare for v0.2.0 release
