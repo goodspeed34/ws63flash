@@ -1,6 +1,15 @@
 News for ws63flash
 ====================
 
+Major New Features:
+-------------------
+* Support baudrate negotiation during handshake, Enable baudrate
+  switching for Hi2821, Hi3861...
+
+Improvements:
+----------------------
+* Default to the old baudrate negotiation method for compatibility
+
 Version 0.3.0 (2024-11-16)
 ----------------------------
 * Beyond~~~

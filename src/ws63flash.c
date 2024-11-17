@@ -65,6 +65,8 @@ static struct argp_option options[] = {
 
 	{"baud", 'b', "BAUDRATE", 0,
 	 "set the flashing serial baudrate", 1},
+	{"late-baud", 1, 0, 0,
+	 "set the baudrate after loaderBoot (Available on Hi3863)", 1},
 	{"verbose", 'v', 0, 0,
 	 "verbosely output the interactions", 1},
 	{0},
@@ -76,6 +78,7 @@ static struct args {
 	int	 args_cnt;
 	int	 verbose;
 	int	 baud;
+	int	 late_baud;
 } arguments;
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
@@ -83,6 +86,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	struct args *args = state->input;
 
 	switch (key) {
+	case 1:
+		args->late_baud = 1;
+		break;
 	case 'b':
 		if (!arg)
 			argp_usage(state);
@@ -238,10 +244,14 @@ int verb_flash(int fd) {
 	printf("Waiting for device reset...\n");
 	t0 = time(NULL);
 	while (1) {
+		struct cmddef handshake = WS63E_FLASHINFO[CMD_HANDSHAKE];
 		uint8_t buf[32];
 		int len;
 
-		if (ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_HANDSHAKE],
+		if (!arguments.late_baud && arguments.baud != 115200)
+			*((uint32_t *) &handshake.dat) = htole32(arguments.baud);
+
+		if (ws63_send_cmddef(fd, handshake,
 				     (arguments.verbose > 2) ? 3 : 0))
 			return EXIT_FAILURE;
 
@@ -264,6 +274,8 @@ int verb_flash(int fd) {
 
 		needle = memmem(buf, len, ack, sizeof(ack)-1);
 		if (needle) {
+			if (!arguments.late_baud && arguments.baud != 115200)
+				uart_open(&fd, NULL, arguments.baud);
 			printf("Establishing ymodem session...\n");
 			break;
 		}
@@ -287,26 +299,25 @@ int verb_flash(int fd) {
 
 	/* Set baud if neccessary */
 
-	if (arguments.baud == 115200) goto baud_done;
+	if (arguments.late_baud && arguments.baud != 115200) {
+		printf("Switching baud... ");
+		fflush(stdout);
 
-	printf("Switching baud... ");
-	fflush(stdout);
-	
-	struct cmddef baudcmd = WS63E_FLASHINFO[CMD_SETBAUDR];
-	*((uint32_t *) baudcmd.dat) = htole32(arguments.baud);
+		struct cmddef baudcmd = WS63E_FLASHINFO[CMD_SETBAUDR];
+		*((uint32_t *) baudcmd.dat) = htole32(arguments.baud);
 
-	ret = ws63_send_cmddef(fd, baudcmd, arguments.verbose);
-	if (ret < 0)
-		return EXIT_FAILURE;
+		ret = ws63_send_cmddef(fd, baudcmd, arguments.verbose);
+		if (ret < 0)
+			return EXIT_FAILURE;
 
-	uart_read_until_magic(fd, arguments.verbose);
-	uart_open(&fd, NULL, arguments.baud);
+		uart_read_until_magic(fd, arguments.verbose);
+		uart_open(&fd, NULL, arguments.baud);
 
-	printf("%d\n", arguments.baud);
-	uart_read_until_magic(fd, arguments.verbose);
-	
+		printf("%d\n", arguments.baud);
+		uart_read_until_magic(fd, arguments.verbose);
+	}
+
 	/* Xfer other files */
- baud_done:
 	for (int i = 0; i < header->cnt; i++) {
 		struct fwpkg_bin_info *bin = &bins[i];
 		if (bin->type_2 != 1) continue;
@@ -427,10 +438,14 @@ int verb_write(int fd) {
 	printf("Waiting for device reset...\n");
 	t0 = time(NULL);
 	while (1) {
+		struct cmddef handshake = WS63E_FLASHINFO[CMD_HANDSHAKE];
 		uint8_t buf[32];
 		int len;
 
-		if (ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_HANDSHAKE],
+		if (!arguments.late_baud && arguments.baud != 115200)
+			*((uint32_t *) &handshake.dat) = htole32(arguments.baud);
+
+		if (ws63_send_cmddef(fd, handshake,
 				     (arguments.verbose > 2) ? 3 : 0))
 			return EXIT_FAILURE;
 
@@ -453,6 +468,8 @@ int verb_write(int fd) {
 
 		needle = memmem(buf, len, ack, sizeof(ack)-1);
 		if (needle) {
+			if (!arguments.late_baud && arguments.baud != 115200)
+				uart_open(&fd, NULL, arguments.baud);
 			printf("Establishing ymodem session...\n");
 			break;
 		}
@@ -473,26 +490,25 @@ int verb_write(int fd) {
 
 	/* Set baud if neccessary */
 
-	if (arguments.baud == 115200) goto baud_done;
+	if (arguments.late_baud && arguments.baud != 115200) {
+		printf("Switching baud... ");
+		fflush(stdout);
 
-	printf("Switching baud... ");
-	fflush(stdout);
+		struct cmddef baudcmd = WS63E_FLASHINFO[CMD_SETBAUDR];
+		*((uint32_t *) baudcmd.dat) = htole32(arguments.baud);
 
-	struct cmddef baudcmd = WS63E_FLASHINFO[CMD_SETBAUDR];
-	*((uint32_t *) baudcmd.dat) = htole32(arguments.baud);
+		ret = ws63_send_cmddef(fd, baudcmd, arguments.verbose);
+		if (ret < 0)
+			return EXIT_FAILURE;
 
-	ret = ws63_send_cmddef(fd, baudcmd, arguments.verbose);
-	if (ret < 0)
-		return EXIT_FAILURE;
+		uart_read_until_magic(fd, arguments.verbose);
+		uart_open(&fd, NULL, arguments.baud);
 
-	uart_read_until_magic(fd, arguments.verbose);
-	uart_open(&fd, NULL, arguments.baud);
-
-	printf("%d\n", arguments.baud);
-	uart_read_until_magic(fd, arguments.verbose);
+		printf("%d\n", arguments.baud);
+		uart_read_until_magic(fd, arguments.verbose);
+	}
 
 	/* Xfer other files */
- baud_done:
 	for (int i = 1; i < arguments.args_cnt-1; i++) {
 		struct wobj *wobj_current = &wobjs[i];
 		struct cmddef cmd = WS63E_FLASHINFO[CMD_DOWNLOADI];
@@ -566,10 +582,14 @@ int verb_erase(int fd) {
 	printf("Waiting for device reset...\n");
 	t0 = time(NULL);
 	while (1) {
+		struct cmddef handshake = WS63E_FLASHINFO[CMD_HANDSHAKE];
 		uint8_t buf[32];
 		int len;
 
-		if (ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_HANDSHAKE],
+		if (!arguments.late_baud && arguments.baud != 115200)
+			*((uint32_t *) &handshake.dat) = htole32(arguments.baud);
+
+		if (ws63_send_cmddef(fd, handshake,
 				     (arguments.verbose > 2) ? 3 : 0))
 			return EXIT_FAILURE;
 
@@ -592,6 +612,8 @@ int verb_erase(int fd) {
 
 		needle = memmem(buf, len, ack, sizeof(ack)-1);
 		if (needle) {
+			if (!arguments.late_baud && arguments.baud != 115200)
+				uart_open(&fd, NULL, arguments.baud);
 			printf("Establishing ymodem session...\n");
 			break;
 		}
