@@ -5,6 +5,7 @@ Major New Features:
 -------------------
 * Support baudrate negotiation during handshake, Enable baudrate
   switching for Hi2821, Hi3861...
+* Provide static builds for linux x86_64 and packed deb package.
 
 Improvements:
 ----------------------
