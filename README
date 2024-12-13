@@ -16,6 +16,7 @@ ws63flash 是通过反向海思官方烧录工具 (BurnTool) 实现的海思 WS6
 
 构建并安装：
 
+  $ autoreconf -fi # 如果使用 Release 源代码，可跳过。
   $ ./configure
   $ make
   $ sudo make install
@@ -30,19 +31,23 @@ ws63flash 是通过反向海思官方烧录工具 (BurnTool) 实现的海思 WS6
 
   # ws63flash --flash COM3 \path\to\fwpkg
 
+以更快的波特率 (推荐, 921600) 刷写：
+
+  # ws63flash -b921600 --flash PORT /path/to/fwpkg
+
 选择性刷写，只刷写 `ws63-liteos-app.bin' 和刷写所需的必要文件：
 
-  $ ws63flash --flash PORT /path/to/fwpkg ws63-liteos-app.bin
+  # ws63flash --flash PORT /path/to/fwpkg ws63-liteos-app.bin
 
 二进制刷写，直接刷写未打包到 fwpkg 的二进制文件：
 
-  $ ws63flash --write PORT root_loaderboot_sign.bin \
+  # ws63flash --write PORT root_loaderboot_sign.bin \
             ws63-liteos-app-sign.bin@0x230000 \
 	    flashboot_sign.bin@0x220000
 
 擦除板上内存：
 
-  $ ws63flash --erase PORT /path/to/fwpkg
+  # ws63flash --erase PORT /path/to/fwpkg
 
 更多信息请参见 `ws63flash --help' 以及 ws63flash(1) 手册页。
 

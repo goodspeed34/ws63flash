@@ -17,6 +17,7 @@ For GNU/Linux, run the following instruction inside a shell.
 
 Build and install:
 
+  $ autoreconf -fi # If using release source, optional.
   $ ./configure
   $ make
   $ sudo make install
@@ -25,25 +26,29 @@ Build and install:
 
 Flashing a fwpkg on POSIX System (GNU/Linux, BSD...):
 
-  $ ws63flash --flash /dev/ttyUSB0 /path/to/fwpkg
+  # ws63flash --flash /dev/ttyUSB0 /path/to/fwpkg
 
 On MichaelSoft Binbows, flashing with a COM port:
 
   # ws63flash --flash COM3 \path\to\fwpkg
 
+Flashing with a faster baudrate (921600, recommended):
+
+  # ws63flash -b921600 --flash PORT /path/to/fwpkg
+
 Selective flashing, only flash `ws63-liteos-app.bin' and mandatory bin:
 
-  $ ws63flash --flash PORT /path/to/fwpkg ws63-liteos-app.bin
+  # ws63flash --flash PORT /path/to/fwpkg ws63-liteos-app.bin
 
 Binary flashing, flash binaries that wasn't packed yet:
 
-  $ ws63flash --write PORT root_loaderboot_sign.bin \
+  # ws63flash --write PORT root_loaderboot_sign.bin \
             ws63-liteos-app-sign.bin@0x230000 \
 	    flashboot_sign.bin@0x220000
 
 Erasing the flash memory on board:
 
-  $ ws63flash --erase PORT /path/to/fwpkg
+  # ws63flash --erase PORT /path/to/fwpkg
 
 For more infomation, check out `ws63flash --help' and ws63flash(1).
 
