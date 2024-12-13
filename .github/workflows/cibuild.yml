@@ -1,0 +1,49 @@
+name: CIBuild
+on: [push, pull_request]
+
+jobs:
+  exe-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: git autoconf automake groff gcc make zip
+      - name: CI-Build
+        run: |
+          autoreconf -fi
+          CC="gcc -static" ./configure
+          make
+          mkdir ws63flash
+          cp src/ws63flash ws63flash
+          cp /usr/bin/msys-2.0.dll ws63flash
+      - uses: actions/upload-artifact@v4.4.0
+        with:
+          name: ws63flash-win32-msys
+          path: ws63flash
+  deb-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git autoconf automake gcc musl musl-tools make checkinstall
+      - name: CI-Build
+        run: |
+          autoreconf -fi
+          CC="musl-gcc -static" ./configure --prefix /usr
+          make
+          echo "ws63flash - flashing utility for Hisilicon WS63" > description-pak
+          checkinstall --default --install=no --fstrans=yes --pkgname=ws63flash --pkgversion="$(build-aux/git-version-gen .)" --pkglicense=GPLv3 --arch=amd64 --pkgsource='https://codeberg.org/goodspeed/ws63flash' --maintainer='gongzl@stu.hebust.edu.cn' -D
+      - uses: actions/upload-artifact@v4.4.0
+        with:
+          name: ws63flash-linux-musl-amd64
+          path: |
+            src/ws63flash
+            *.deb

@@ -1,3 +1,9 @@
+description-pak
+doc-pak
+*.deb
+*.rpm
+*.tgz
+
 build/
 .cache/
 compile_commands.json
