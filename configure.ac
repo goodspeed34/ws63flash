@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.72])
+AC_PREREQ([2.70])
 
 AC_CONFIG_AUX_DIR([build-aux])
 AC_REQUIRE_AUX_FILE([git-version-gen])
