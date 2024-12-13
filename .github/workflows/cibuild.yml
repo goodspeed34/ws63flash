@@ -9,6 +9,8 @@ jobs:
         shell: msys2 {0}
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MSYS
@@ -30,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -40,10 +44,11 @@ jobs:
           CC="musl-gcc -static" ./configure --prefix /usr
           make
           echo "ws63flash - flashing utility for Hisilicon WS63" > description-pak
-          checkinstall --default --install=no --fstrans=yes --pkgname=ws63flash --pkgversion="$(build-aux/git-version-gen .)" --pkglicense=GPLv3 --arch=amd64 --pkgsource='https://codeberg.org/goodspeed/ws63flash' --maintainer='gongzl@stu.hebust.edu.cn' -D
+          checkinstall --default --install=no --fstrans=yes --pkgname=ws63flash --pkgversion="$(cat .version)" --pkglicense=GPLv3 --arch=amd64 --pkgsource='https://codeberg.org/goodspeed/ws63flash' --maintainer='gongzl@stu.hebust.edu.cn' -D
+          cp src/ws63flash ws63flash-static
       - uses: actions/upload-artifact@v4.4.0
         with:
           name: ws63flash-linux-musl-amd64
           path: |
-            src/ws63flash
+            ws63flash-static
             *.deb
