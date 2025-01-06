@@ -328,6 +328,10 @@
    */
 #undef HAVE_DECL_GETW
 
+/* Define to 1 if you have the declaration of 'IOSSIOSPEED', and to 0 if you
+   don't. */
+#undef HAVE_DECL_IOSSIOSPEED
+
 /* Define to 1 if you have the declaration of 'program_invocation_name', and
    to 0 if you don't. */
 #undef HAVE_DECL_PROGRAM_INVOCATION_NAME

@@ -39,7 +39,8 @@
 #include <termios.h>
 #include <errno.h>
 #include <fcntl.h>
-#ifdef __APPLE__
+
+#if defined(__APPLE__) && defined(HAVE_DECL_IOSSIOSPEED)
 #include <IOKit/serial/ioss.h> // IOSSIOSPEED
 #endif
 
@@ -51,7 +52,7 @@ static inline int uart_open (int *fd, const char *ttydev, int baud)
 {
 	struct termios tty;
 
-	if (*fd == -1){
+	if (*fd == -1) {
 		*fd = open(ttydev, O_RDWR | O_NOCTTY | O_SYNC);
 		if (*fd < 0) {
 			perror("open");
@@ -67,8 +68,7 @@ static inline int uart_open (int *fd, const char *ttydev, int baud)
 	speed_t speed = B115200;
 	int speed_found = 0;
 
-	for (int i = 0; i < AVAIL_BAUD_N; i++)
-	{
+	for (int i = 0; i < AVAIL_BAUD_N; i++) {
 		struct baud_ipair baud_pair = avail_baud_tbl[i];
 		if (baud_pair.baud != baud)
 			continue;
@@ -78,19 +78,19 @@ static inline int uart_open (int *fd, const char *ttydev, int baud)
 		break;
 	}
 
+#if !defined(__APPLE__) || !defined(HAVE_DECL_IOSSIOSPEED)
 	if (!speed_found) {
-#ifndef __APPLE__
 		fprintf(stderr,
 			"failed to switch to baud %d,"
 			"maybe your system doesn't support it?\n",
 			baud);
-		return -EINVAL;
+		errno = EINVAL;
+		goto err;
+	}
 #endif
-	}
-	if (0 != speed_found) {
-		cfsetospeed(&tty, speed);
-		cfsetispeed(&tty, speed);
-	}
+
+	cfsetospeed(&tty, speed);
+	cfsetispeed(&tty, speed);
 
 	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
 	tty.c_iflag &= ~IGNBRK;
@@ -105,24 +105,34 @@ static inline int uart_open (int *fd, const char *ttydev, int baud)
 	tty.c_cflag &= ~CSTOPB;
 	tty.c_cflag &= ~CRTSCTS;
 
-	if (tcsetattr(*fd, TCSANOW, &tty) < 0)
-	{
+	if (tcsetattr(*fd, TCSANOW, &tty) < 0) {
 		perror("tcsetattr");
-		*fd = -1;
-		return -errno;
+		goto err;
 	}
-#ifdef __APPLE__
-	// Mac OS X Tiger(10.4.11) support non-standard baud rate through IOSSIOSPEED
-	if (0 == speed_found) {
+
+#if defined(__APPLE__) && defined(HAVE_DECL_IOSSIOSPEED)
+	/*
+	  Mac OS X Tiger(10.4.11) support non-standard baud rate
+	  through IOSSIOSPEED
+	*/
+	if (!speed_found) {
 		speed_t customBaudRate = (speed_t)baud;
-		if (-1 == ioctl(*fd, IOSSIOSPEED, &customBaudRate)) {
-			fprintf(stderr, "ioctl IOSSIOSPEED custom baud rate error\n");
-			return -EINVAL;
+		if (ioctl(*fd, IOSSIOSPEED, &customBaudRate) < 0) {
+			fprintf(stderr,
+				"ioctl IOSSIOSPEED custom baud"
+				"rate error\n");
+			errno = EINVAL;
+			goto err;
 		}
 	}
 #endif
 
 	return 0;
+
+ err:
+	if (*fd > 0) close(*fd);
+	*fd = -1;
+	return -errno;
 }
 
 static inline int uart_read_until_magic(int fd, int verbose)
@@ -137,11 +147,9 @@ static inline int uart_read_until_magic(int fd, int verbose)
 	if (verbose)
 		printf("< ");
 
-	while (1)
-	{
+	while (1) {
 		/* Abort if too far away from the last valid read */
-		if (difftime(time(NULL), t0) > UART_READ_TIMEOUT)
-		{
+		if (difftime(time(NULL), t0) > UART_READ_TIMEOUT) {
 			errno = ETIMEDOUT;
 			perror("uart_read_until_magic");
 			return -errno;
@@ -150,8 +158,7 @@ static inline int uart_read_until_magic(int fd, int verbose)
 		len = read(fd, buf + i, 1);
 		if (len == 0)
 			continue;
-		if (len < 0)
-		{
+		if (len < 0) {
 			perror("read");
 			return -errno;
 		}
@@ -162,23 +169,20 @@ static inline int uart_read_until_magic(int fd, int verbose)
 		switch (st)
 		{
 		case 0:
-			if ((uint8_t)mgc[i] == buf[i])
-			{
+			if ((uint8_t)mgc[i] == buf[i]) {
 				if (++i >= 3)
 					st = 1;
 				continue;
 			}
 
-			if (i >= 3)
-			{
+			if (i >= 3) {
 				st = 1;
 				continue;
 			}
 
 			i = 0;
 
-			if (verbose)
-			{
+			if (verbose) {
 				/* if not and verbose enabled, print it */
 				if (isascii(buf[i]) && isprint(buf[i]))
 					printf("%c", (occ = buf[i]));
@@ -200,15 +204,14 @@ static inline int uart_read_until_magic(int fd, int verbose)
 			continue;
 		}
 
-		if (verbose > 1)
-		{
+		if (verbose > 1) {
 			printf("\n< ");
 			for (int j = 0; j < i + 1; j++)
 				printf("%02x ", buf[j]);
 		}
 
-		if (*(uint16_t *)(buf + framelen - 2) != htole16(crc16_xmodem(buf, framelen - 2)))
-		{
+		if (*(uint16_t *)(buf + framelen - 2)
+		    != htole16(crc16_xmodem(buf, framelen - 2))) {
 			fprintf(stderr, "Warning: bad crc from cmd frame!\n");
 			break;
 		}
@@ -242,19 +245,16 @@ static inline int ws63_send_cmddef(int fd, struct cmddef cmddef, int verbose)
 	*((uint16_t *)(buf + 8 + cmddef.len)) =
 		htole16(crc16_xmodem(buf, total_bytes - 2));
 
-	while (written < cmddef.len + 10)
-	{
+	while (written < cmddef.len + 10) {
 		int wrote = write(fd, buf + written, total_bytes - written);
-		if (wrote < 0)
-		{
+		if (wrote < 0) {
 			perror("write");
 			return -errno;
 		}
 		written += wrote;
 	}
 
-	if (verbose > 1)
-	{
+	if (verbose > 1) {
 		printf("> ");
 		for (int i = 0; i < total_bytes; i++)
 			printf("%02x ", buf[i]);

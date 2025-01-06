@@ -101,7 +101,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 			speed_found = 1;
 			break;
 		}
-#ifndef __APPLE__
+
+#if !defined(__APPLE__) || !defined(HAVE_DECL_IOSSIOSPEED)
 		if (!speed_found) {
 			fprintf(stderr,
 				"Target baud %d not found,"
@@ -113,6 +114,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 			exit(EXIT_FAILURE);
 		}
 #endif
+
 		args->baud = baud;
 		break;
 	case 'v':
