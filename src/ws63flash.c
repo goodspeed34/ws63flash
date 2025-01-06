@@ -172,6 +172,38 @@ static int bin_in_args(const char *s, struct args *args) {
 	return found;
 };
 
+static inline int ws63_poll_reset(int fd, int verbose)
+{
+	char	buf[32] = { 0 };
+	int	ret	= 0;
+	time_t	t0	= time(NULL), t1 = t0;
+
+	while (t1 - t0 < RESET_TIMEOUT) {
+		t1 = time(NULL);
+
+		ret = ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST],
+				       arguments.verbose);
+		if (ret < 0) return ret;
+
+		ret = read(fd, buf, 32);
+		if (ret < 0) return -errno;
+
+		if (verbose)
+			for (int i = 0; i < ret; i++) {
+				if (isascii(buf[i]) && isprint(buf[i]))
+					printf("%c", buf[i]);
+				else
+					printf("%02X ", (unsigned char) buf[i]);
+			}
+
+		if (ret > 0 && (memmem(buf, 32, "Reset", 5)
+				|| memmem(buf, 32, "reset", 5)))
+			return 0;
+	}
+
+	return -ETIMEDOUT;
+}
+
 int verb_flash(int fd) {
 	time_t t0;
 	int ret;
@@ -358,9 +390,9 @@ int verb_flash(int fd) {
 	}
 
 	printf("Done. Reseting device...\n");
-	ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST], arguments.verbose);
+	if (ws63_poll_reset(fd, arguments.verbose) < 0)
+		perror("ws63_poll_reset");
 
-	uart_read_until_magic(fd, arguments.verbose);
 	return 0;
 }
 
@@ -543,9 +575,8 @@ int verb_write(int fd) {
 	}
 
 	printf("Done. Reseting device...\n");
-	ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST], arguments.verbose);
-
-	uart_read_until_magic(fd, arguments.verbose);
+	if (ws63_poll_reset(fd, arguments.verbose) < 0)
+		perror("ws63_poll_reset");
 	return 0;
 }
 
@@ -642,9 +673,8 @@ int verb_erase(int fd) {
 	uart_read_until_magic(fd, arguments.verbose);
 
 	printf("Done. Reseting device...\n");
-	ws63_send_cmddef(fd, WS63E_FLASHINFO[CMD_RST], arguments.verbose);
-
-	uart_read_until_magic(fd, arguments.verbose);
+        if (ws63_poll_reset(fd, arguments.verbose) < 0)
+		perror("ws63_poll_reset");
 	return 0;
 }
 
