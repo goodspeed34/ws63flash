@@ -1,6 +1,6 @@
 /*
   ws63flash - Hisense WS63 Flash Tool
-  Copyright (C) 2024  Gong Zhile
+  Copyright (C) 2024-2025  Gong Zhile
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@
 
 const char	*argp_program_version	  =
   PACKAGE_STRING "\n"
-  "Copyright (C) 2024 Gong Zhile\n"
+  "Copyright (C) 2024-2025 Gong Zhile\n"
   "This is free software; see the source for copying conditions.  There is NO\n"
   "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n";
 const char	*argp_program_bug_address = PACKAGE_BUGREPORT;

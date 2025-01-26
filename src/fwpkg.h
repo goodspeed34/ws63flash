@@ -1,6 +1,6 @@
 /*
   fwpkg.h - Hisilicon Fwpkg Format Parser
-  Copyright (C) 2024  Gong Zhile
+  Copyright (C) 2024-2025  Gong Zhile
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by

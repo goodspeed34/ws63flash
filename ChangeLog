@@ -1,6 +1,46 @@
-2024-11-16  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+2025-01-26  William Goodspeed  <goodspeed@anche.no>
+
+	Merge branch 'macos-any-baudrate' of https://github.com/goodspeed34/ws63flash
+
+2025-01-06  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	src/ws63flash.c: fix reset regression (workaround)
+
+2025-01-06  William Goodspeed  <goodspeed@anche.no>
+
+	{src/io.h,src/ws63flash.c}: Minor formating, Provide checks before initiating HAVE_DECL_IOSSIOSPEED
+
+2025-01-06  qi-xmu  <360141773@qq.com>
+
+	fix(io): 增加苹果系统下非标准波特率支持
+	- 在 io.h 中添加了苹果系统特有的头文件包含
+	- 实现了苹果系统下通过 IOSSIOSPEED ioctl 设置自定义波特率的方法
+	- 更新了 uart_open 函数以支持非标准波特率
+	- 修改了 ws63flash.c 中的错误处理，以适应苹果系统的特性
+
+2024-12-13  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	Prepare for 0.2.2 release
+
+	Workflow: fully checkout during CI build to get correct version
+
+	Workflow: Add CI build for amd64 linux static
+
+	README{,.en}: Polish building and flashing instructions
+
+	configure.ac: Downgrading autoconf version req to 2.70
+
+2024-11-17  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	man/ws63flash.1: add synopsis for write action
+
+	src/ws63flash.c: Support baudrate negotiation during handshake & Make it default
+
+	Prepare for v0.2.1 release
 
 	src/ws63flash.c: Support writing bin(s) to specific address
+
+2024-11-16  Gong Zhile  <gongzl@stu.hebust.edu.cn>
 
 	src/io.h: Fixed compilation error on OpenBSD
 
