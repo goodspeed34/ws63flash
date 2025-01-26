@@ -40,6 +40,10 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#if defined(__APPLE__) && defined(HAVE_DECL_IOSSIOSPEED)
+#include <IOKit/serial/ioss.h> // IOSSIOSPEED
+#endif
+
 #define UART_READ_TIMEOUT 2
 
 #define SWAP_CMD(x) (((x) << 4) | ((x) >> 4))
@@ -66,20 +70,24 @@ static inline int uart_open (int *fd, const char *ttydev, int baud)
 
 	for (int i = 0; i < AVAIL_BAUD_N; i++) {
 		struct baud_ipair baud_pair = avail_baud_tbl[i];
-		if (baud_pair.baud != baud) continue;
+		if (baud_pair.baud != baud)
+			continue;
 
 		speed = baud_pair.speed;
 		speed_found = 1;
 		break;
 	}
 
+#if !defined(__APPLE__) || !defined(HAVE_DECL_IOSSIOSPEED)
 	if (!speed_found) {
 		fprintf(stderr,
 			"failed to switch to baud %d,"
 			"maybe your system doesn't support it?\n",
 			baud);
-		return -EINVAL;
+		errno = EINVAL;
+		goto err;
 	}
+#endif
 
 	cfsetospeed(&tty, speed);
 	cfsetispeed(&tty, speed);
@@ -99,26 +107,47 @@ static inline int uart_open (int *fd, const char *ttydev, int baud)
 
 	if (tcsetattr(*fd, TCSANOW, &tty) < 0) {
 		perror("tcsetattr");
-		*fd = -1;
-		return -errno;
+		goto err;
 	}
 
+#if defined(__APPLE__) && defined(HAVE_DECL_IOSSIOSPEED)
+	/*
+	  Mac OS X Tiger(10.4.11) support non-standard baud rate
+	  through IOSSIOSPEED
+	*/
+	if (!speed_found) {
+		speed_t customBaudRate = (speed_t)baud;
+		if (ioctl(*fd, IOSSIOSPEED, &customBaudRate) < 0) {
+			fprintf(stderr,
+				"ioctl IOSSIOSPEED custom baud"
+				"rate error\n");
+			errno = EINVAL;
+			goto err;
+		}
+	}
+#endif
+
 	return 0;
+
+ err:
+	if (*fd > 0) close(*fd);
+	*fd = -1;
+	return -errno;
 }
 
 static inline int uart_read_until_magic(int fd, int verbose)
 {
 	char occ, *mgc = "\xef\xbe\xad\xde";
-	uint8_t buf[1024+12];
+	uint8_t buf[1024 + 12];
 	int len = 0, i = 0, framelen = 0, st = 0;
 	time_t t0 = time(NULL);
 
 	memset(buf, 0, sizeof(buf));
 
-	if (verbose) printf("< ");
+	if (verbose)
+		printf("< ");
 
-	while (1)
-	{
+	while (1) {
 		/* Abort if too far away from the last valid read */
 		if (difftime(time(NULL), t0) > UART_READ_TIMEOUT) {
 			errno = ETIMEDOUT;
@@ -126,8 +155,9 @@ static inline int uart_read_until_magic(int fd, int verbose)
 			return -errno;
 		}
 
-		len = read(fd, buf+i, 1);
-		if (len == 0) continue;
+		len = read(fd, buf + i, 1);
+		if (len == 0)
+			continue;
 		if (len < 0) {
 			perror("read");
 			return -errno;
@@ -136,10 +166,12 @@ static inline int uart_read_until_magic(int fd, int verbose)
 		/* Update last valid char timer */
 		t0 = time(NULL);
 
-		switch (st) {
+		switch (st)
+		{
 		case 0:
-			if ((uint8_t) mgc[i] == buf[i]) {
-				if (++i >= 3) st = 1;
+			if ((uint8_t)mgc[i] == buf[i]) {
+				if (++i >= 3)
+					st = 1;
 				continue;
 			}
 
@@ -156,17 +188,17 @@ static inline int uart_read_until_magic(int fd, int verbose)
 					printf("%c", (occ = buf[i]));
 				if (buf[i] == '\n' && occ != '\n')
 					printf("%c< ", (occ = buf[i]));
-                                fflush(stdout);
+				fflush(stdout);
 			}
 
 			continue;
 		case 1:
 			if (i == 5) /* 4:5 are the length to be read */
 				framelen = le16toh(*(uint16_t *)(buf + 4));
-			else if (i == framelen-1) /* reached the end */
+			else if (i == framelen - 1) /* reached the end */
 				break;
 			i++;
-		        continue;
+			continue;
 		default:
 			st = 0;
 			continue;
@@ -174,11 +206,12 @@ static inline int uart_read_until_magic(int fd, int verbose)
 
 		if (verbose > 1) {
 			printf("\n< ");
-			for (int j = 0; j < i+1; j++)
+			for (int j = 0; j < i + 1; j++)
 				printf("%02x ", buf[j]);
 		}
 
-		if (*(uint16_t *) (buf+framelen-2) != htole16(crc16_xmodem(buf, framelen-2))) {
+		if (*(uint16_t *)(buf + framelen - 2)
+		    != htole16(crc16_xmodem(buf, framelen - 2))) {
 			fprintf(stderr, "Warning: bad crc from cmd frame!\n");
 			break;
 		}
@@ -186,29 +219,30 @@ static inline int uart_read_until_magic(int fd, int verbose)
 		break;
 	}
 
-	if (verbose) printf("\n");
+	if (verbose)
+		printf("\n");
 
 	return 0;
 }
 
 static inline int ws63_send_cmddef(int fd, struct cmddef cmddef, int verbose)
 {
-	uint8_t buf[1024+12];
+	uint8_t buf[1024 + 12];
 	size_t written = 0;
 	size_t total_bytes = cmddef.len + 10;
 
 	assert(sizeof(buf) > total_bytes);
 
 	/* Start of Frame, 0xDEADBEEF LE */
-	*((uint32_t *) buf) = htole32(0xdeadbeef);
+	*((uint32_t *)buf) = htole32(0xdeadbeef);
 	/* Length */
-	*((uint16_t *) (buf+4)) = htole16(total_bytes);
+	*((uint16_t *)(buf + 4)) = htole16(total_bytes);
 	/* Payload */
 	buf[6] = cmddef.cmd;
 	buf[7] = SWAP_CMD(cmddef.cmd);
-	memcpy(buf+8, cmddef.dat, cmddef.len);
+	memcpy(buf + 8, cmddef.dat, cmddef.len);
 	/* Checksum */
-	*((uint16_t *) (buf+8+cmddef.len)) =
+	*((uint16_t *)(buf + 8 + cmddef.len)) =
 		htole16(crc16_xmodem(buf, total_bytes - 2));
 
 	while (written < cmddef.len + 10) {
