@@ -45,7 +45,7 @@ const static struct baud_ipair avail_baud_tbl[] = {
 #if HAVE_DECL_B576000
 	{576000, B576000},
 #endif
-#if HAVE_DECL_B576000
+#if HAVE_DECL_B921600
 	{921600, B921600},
 #endif
 
