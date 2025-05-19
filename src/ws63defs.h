@@ -24,6 +24,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct wobj {
+	char	*name;
+	size_t   length;
+	size_t	 addr;
+};
+
 /*
   Hisense WS63 Flash Frame Structure:
 

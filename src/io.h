@@ -48,6 +48,14 @@
 
 #define SWAP_CMD(x) (((x) << 4) | ((x) >> 4))
 
+#define checked_fwrite(ptr, size, nmemb, stream)                        \
+    do {                                                                \
+        if (fwrite(ptr, size, nmemb, stream) != (nmemb)) {             \
+            perror("fwrite");                                           \
+            return 1;                                                   \
+        }                                                               \
+    } while (0)
+
 static inline int uart_open (int *fd, const char *ttydev, int baud)
 {
 	struct termios tty;
@@ -259,6 +267,37 @@ static inline int ws63_send_cmddef(int fd, struct cmddef cmddef, int verbose)
 		for (int i = 0; i < total_bytes; i++)
 			printf("%02x ", buf[i]);
 		printf("\n");
+	}
+
+	return 0;
+}
+
+int copy_part(FILE *fin, FILE *fout, long start, long length)
+{
+	if (fseek(fin, start, SEEK_SET) != 0) {
+		perror("Seek failed");
+		return 1;
+	}
+
+	char buffer[0x1000];
+	long remaining = length;
+
+	while (remaining > 0) {
+		size_t chunk_size = remaining > 0x1000 ? 0x1000 : remaining;
+		size_t bytes_read = fread(buffer, 1, chunk_size, fin);
+		if (bytes_read == 0) {
+			if (feof(fin)) break;
+			perror("Read error");
+			return 1;
+		}
+
+		size_t bytes_written = fwrite(buffer, 1, bytes_read, fout);
+		if (bytes_written != bytes_read) {
+			perror("Write error");
+			return 1;
+		}
+
+		remaining -= bytes_read;
 	}
 
 	return 0;

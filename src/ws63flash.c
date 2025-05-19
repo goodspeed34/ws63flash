@@ -398,12 +398,6 @@ int verb_flash(int fd) {
 	return 0;
 }
 
-struct wobj {
-	char	*name;
-	size_t   length;
-	size_t	 addr;
-};
-
 int verb_write(int fd) {
 	time_t t0;
 	FILE *fw;
