@@ -58,8 +58,8 @@ static char args_doc[] =
 static struct argp_option options[] = {
 	{"inject", 'i', 0, 0,
 	 "inject bin files to a fwpkg", 0},
-	{"out", 'o', 0, 0,
-	 "output manipulated fwpkg to a file", 0},
+	{"out", 'o', "FWPKG", 0,
+	 "output manipulated fwpkg to a file", 1},
 	{0},
 };
 
@@ -83,7 +83,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		if (arg[0] == '-' && arg[1] == 0) /* stdout */
 			break;
 
-		args->outfd = open(arg, O_RDWR);
+		args->outfd = open(arg, O_RDWR | O_CREAT, 0644);
 		break;
 	case 'i':
 		if (args->verb)
@@ -154,7 +154,7 @@ int verb_inject(int fd)
 	}
 
 	FILE *infw = fopen(arguments.args[0], "r");
-	FILE *outfw = (fd == STDOUT_FILENO) ? stdout : fdopen(fd, "rw");
+	FILE *outfw = (fd == STDOUT_FILENO) ? stdout : fdopen(fd, "r+");
 
 	if (!infw || !outfw) {
 		perror("fopen");

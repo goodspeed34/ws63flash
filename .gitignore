@@ -62,4 +62,5 @@ test-suite.log
 .tar_version	
 
 src/ws63flash
+src/ws63fwpkg
 lib/
