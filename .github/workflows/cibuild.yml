@@ -2,6 +2,20 @@ name: CIBuild
 on: [push, pull_request]
 
 jobs:
+  mac-build:
+    runs-on: macos-15-arm64
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Dependencies
+        run: |
+          brew install automake autoconf
+      - name: CI-Build
+        run: |
+          autoreconf -fi
+          ./configure
+          make
   exe-build:
     runs-on: windows-latest
     defaults:
