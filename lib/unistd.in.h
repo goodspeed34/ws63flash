@@ -1,5 +1,5 @@
 /* Substitute for and wrapper around <unistd.h>.
-   Copyright (C) 2003-2024 Free Software Foundation, Inc.
+   Copyright (C) 2003-2025 Free Software Foundation, Inc.
 
    This file is free software: you can redistribute it and/or modify
    it under the terms of the GNU Lesser General Public License as
@@ -95,12 +95,24 @@
 # include <stdio.h>
 #endif
 
+/* Native Windows platforms declare _chdir, _getcwd, _rmdir in
+   <io.h> and/or <direct.h>, not in <unistd.h>.
+   They also declare _access(), _chmod(), _close(), _dup(), _dup2(), _isatty(),
+   _lseek(), _read(), _unlink(), _write() in <io.h>.  */
+#if defined _WIN32 && !defined __CYGWIN__
+# include <io.h>
+# include <direct.h>
+#endif
+
+/* FreeBSD 14.0, NetBSD 10.0, OpenBSD 7.5, Solaris 11.4, and glibc 2.41
+   do not define O_CLOEXEC in <unistd.h>.  */
 /* Cygwin 1.7.1 and Android 4.3 declare unlinkat in <fcntl.h>, not in
    <unistd.h>.  */
 /* But avoid namespace pollution on glibc systems.  */
-#if (@GNULIB_UNLINKAT@ || defined GNULIB_POSIXCHECK) \
-    && (defined __CYGWIN__ || defined __ANDROID__) \
-    && ! defined __GLIBC__
+#if ! defined O_CLOEXEC \
+    || ((@GNULIB_UNLINKAT@ || defined GNULIB_POSIXCHECK) \
+         && (defined __CYGWIN__ || defined __ANDROID__) \
+         && ! defined __GLIBC__)
 # include <fcntl.h>
 #endif
 
@@ -115,15 +127,6 @@
 # define __need_system_stdlib_h
 # include <stdlib.h>
 # undef __need_system_stdlib_h
-#endif
-
-/* Native Windows platforms declare _chdir, _getcwd, _rmdir in
-   <io.h> and/or <direct.h>, not in <unistd.h>.
-   They also declare _access(), _chmod(), _close(), _dup(), _dup2(), _isatty(),
-   _lseek(), _read(), _unlink(), _write() in <io.h>.  */
-#if defined _WIN32 && !defined __CYGWIN__
-# include <io.h>
-# include <direct.h>
 #endif
 
 /* Native Windows platforms declare _execl*, _execv* in <process.h>.  */
@@ -180,6 +183,9 @@
 _GL_INLINE_HEADER_BEGIN
 #ifndef _GL_UNISTD_INLINE
 # define _GL_UNISTD_INLINE _GL_INLINE
+#endif
+#ifndef _GL_GETPAGESIZE_INLINE
+# define _GL_GETPAGESIZE_INLINE _GL_INLINE
 #endif
 
 /* Hide some function declarations from <winsock2.h>.  */
@@ -460,7 +466,9 @@ _GL_CXXALIAS_SYS (copy_file_range, ssize_t, (int ifd, off_t *ipos,
                                              int ofd, off_t *opos,
                                              size_t len, unsigned flags));
 # endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (copy_file_range);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef copy_file_range
 # if HAVE_RAW_DECL_COPY_FILE_RANGE
@@ -1359,11 +1367,21 @@ _GL_WARN_ON_USE (gethostname, "gethostname is unportable - "
      ${LOGNAME-$USER}        on Unix platforms,
      $USERNAME               on native Windows platforms.
  */
-# if !@HAVE_DECL_GETLOGIN@
+# if @REPLACE_GETLOGIN@
+#  if !(defined __cplusplus && defined GNULIB_NAMESPACE)
+#   define getlogin rpl_getlogin
+#  endif
+_GL_FUNCDECL_RPL (getlogin, char *, (void), );
+_GL_CXXALIAS_RPL (getlogin, char *, (void));
+# else
+#  if !@HAVE_DECL_GETLOGIN@
 _GL_FUNCDECL_SYS (getlogin, char *, (void), );
-# endif
+#  endif
 _GL_CXXALIAS_SYS (getlogin, char *, (void));
+# endif
+# if __GLIBC__ >= 2
 _GL_CXXALIASWARN (getlogin);
+# endif
 #elif defined GNULIB_POSIXCHECK
 # undef getlogin
 # if HAVE_RAW_DECL_GETLOGIN
@@ -1478,7 +1496,7 @@ _GL_FUNCDECL_SYS (getpagesize, int, (void), );
 #     define getpagesize() _gl_getpagesize ()
 #    else
 #     if !GNULIB_defined_getpagesize_function
-_GL_UNISTD_INLINE int
+_GL_GETPAGESIZE_INLINE int
 getpagesize ()
 {
   return _gl_getpagesize ();
@@ -2402,7 +2420,7 @@ _GL_WARN_ON_USE (unlinkat, "unlinkat is not portable - "
 #if @GNULIB_USLEEP@
 /* Pause the execution of the current thread for N microseconds.
    Returns 0 on completion, or -1 on range error.
-   See the POSIX:2001 specification
+   See the POSIX.1-2004 specification
    <https://pubs.opengroup.org/onlinepubs/009695399/functions/usleep.html>.  */
 # if @REPLACE_USLEEP@
 #  if !(defined __cplusplus && defined GNULIB_NAMESPACE)

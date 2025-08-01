@@ -1,5 +1,5 @@
 /* Default definition for ARGP_PROGRAM_VERSION.
-   Copyright (C) 1996-2024 Free Software Foundation, Inc.
+   Copyright (C) 1996-2025 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
    Written by Miles Bader <miles@gnu.ai.mit.edu>.
 
@@ -15,6 +15,13 @@
 
    You should have received a copy of the GNU Lesser General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+/* Specification.  */
+#include "argp.h"
 
 /* If set by the user program to a non-zero value, then a default option
    --version is added (unless the ARGP_NO_HELP flag is used), which will

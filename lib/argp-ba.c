@@ -1,5 +1,5 @@
 /* Default definition for ARGP_PROGRAM_BUG_ADDRESS.
-   Copyright (C) 1996-2024 Free Software Foundation, Inc.
+   Copyright (C) 1996-2025 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
    Written by Miles Bader <miles@gnu.ai.mit.edu>.
 
@@ -15,6 +15,13 @@
 
    You should have received a copy of the GNU Lesser General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+/* Specification.  */
+#include "argp.h"
 
 /* If set by the user program, it should point to string that is the
    bug-reporting address for the program.  It will be printed by argp_help if

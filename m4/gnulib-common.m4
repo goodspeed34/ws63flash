@@ -1,9 +1,10 @@
 # gnulib-common.m4
-# serial 105
-dnl Copyright (C) 2007-2024 Free Software Foundation, Inc.
+# serial 113
+dnl Copyright (C) 2007-2025 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
 dnl gives unlimited permission to copy and/or distribute it,
 dnl with or without modifications, as long as this notice is preserved.
+dnl This file is offered as-is, without any warranty.
 
 AC_PREREQ([2.62])
 
@@ -19,6 +20,20 @@ AC_DEFUN([gl_COMMON_BODY], [
   AH_VERBATIM([0witness],
 [/* Witness that <config.h> has been included.  */
 #define _GL_CONFIG_H_INCLUDED 1
+])
+  dnl Avoid warnings from gcc -Wtrailing-whitespace.
+  dnl This is a temporary workaround until Autoconf fixes it.
+  dnl Test case:
+  dnl empty1=; empty2=; AC_DEFINE_UNQUOTED([FOO], [$empty1$empty2], [...])
+  dnl should produce "#define FOO /**/", not "#define FOO ".
+  AH_TOP([#if defined __GNUC__ && __GNUC__ >= 15 && !defined __clang__
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wtrailing-whitespace"
+#endif
+])
+  AH_BOTTOM([#if defined __GNUC__ && __GNUC__ >= 15 && !defined __clang__
+# pragma GCC diagnostic pop
+#endif
 ])
   AH_VERBATIM([_GL_GNUC_PREREQ],
 [/* True if the compiler says it groks GNU C version MAJOR.MINOR.
@@ -42,33 +57,25 @@ AC_DEFUN([gl_COMMON_BODY], [
 #endif
 ])
   AH_VERBATIM([_Noreturn],
-[/* The _Noreturn keyword of C11.  */
+[/* The _Noreturn keyword of C11.
+   Do not use [[noreturn]], because with it the syntax
+     extern _Noreturn void func (...);
+   would not be valid; such a declaration would be valid only with 'extern'
+   and '_Noreturn' swapped, or without the 'extern' keyword.  However, some
+   AIX system header files and several gnulib header files use precisely
+   this syntax with 'extern'.  So even though C23 deprecates _Noreturn,
+   it is currently more portable to prefer it to [[noreturn]].
+
+   Also, do not try to work around LLVM bug 59792 (clang 15 or earlier).
+   This rare bug can be worked around by compiling with 'clang -D_Noreturn=',
+   though the workaround may generate many false-alarm warnings.  */
 #ifndef _Noreturn
-# if (defined __cplusplus \
-      && ((201103 <= __cplusplus && !(__GNUC__ == 4 && __GNUC_MINOR__ == 7)) \
-          || (defined _MSC_VER && 1900 <= _MSC_VER)) \
-      && 0)
-    /* [[noreturn]] is not practically usable, because with it the syntax
-         extern _Noreturn void func (...);
-       would not be valid; such a declaration would only be valid with 'extern'
-       and '_Noreturn' swapped, or without the 'extern' keyword.  However, some
-       AIX system header files and several gnulib header files use precisely
-       this syntax with 'extern'.  */
-#  define _Noreturn [[noreturn]]
-# elif (defined __clang__ && __clang_major__ < 16 \
-        && defined _GL_WORK_AROUND_LLVM_BUG_59792)
-   /* Compile with -D_GL_WORK_AROUND_LLVM_BUG_59792 to work around
-      that rare LLVM bug, though you may get many false-alarm warnings.  */
-#  define _Noreturn
-# elif ((!defined __cplusplus || defined __clang__) \
-        && (201112 <= (defined __STDC_VERSION__ ? __STDC_VERSION__ : 0) \
-            || (!defined __STRICT_ANSI__ \
-                && (_GL_GNUC_PREREQ (4, 7) \
-                    || (defined __apple_build_version__ \
-                        ? 6000000 <= __apple_build_version__ \
-                        : 3 < __clang_major__ + (5 <= __clang_minor__))))))
+# if ((!defined __cplusplus || defined __clang__) \
+      && (201112 <= (defined __STDC_VERSION__ ? __STDC_VERSION__ : 0)))
    /* _Noreturn works as-is.  */
 # elif _GL_GNUC_PREREQ (2, 8) || defined __clang__ || 0x5110 <= __SUNPRO_C
+   /* Prefer __attribute__ ((__noreturn__)) to plain _Noreturn even if the
+      latter works, as 'gcc -std=gnu99 -Wpedantic' warns about _Noreturn.  */
 #  define _Noreturn __attribute__ ((__noreturn__))
 # elif 1200 <= (defined _MSC_VER ? _MSC_VER : 0)
 #  define _Noreturn __declspec (noreturn)
@@ -102,6 +109,9 @@ AC_DEFUN([gl_COMMON_BODY], [
 #  define _GL_HAS_ATTRIBUTE(attr) __has_attribute (__##attr##__)
 # else
 #  define _GL_HAS_ATTRIBUTE(attr) _GL_ATTR_##attr
+/* The following lines list the first GCC version that supports the attribute.
+   Although the lines are not used in GCC 5 and later (as GCC 5 introduced
+   __has_attribute support), list GCC versions 5+ anyway for completeness.  */
 #  define _GL_ATTR_alloc_size _GL_GNUC_PREREQ (4, 3)
 #  define _GL_ATTR_always_inline _GL_GNUC_PREREQ (3, 2)
 #  define _GL_ATTR_artificial _GL_GNUC_PREREQ (4, 3)
@@ -122,14 +132,15 @@ AC_DEFUN([gl_COMMON_BODY], [
 #  endif
 #  define _GL_ATTR_noinline _GL_GNUC_PREREQ (3, 1)
 #  define _GL_ATTR_nonnull _GL_GNUC_PREREQ (3, 3)
+#  define _GL_ATTR_nonnull_if_nonzero _GL_GNUC_PREREQ (15, 1)
 #  define _GL_ATTR_nonstring _GL_GNUC_PREREQ (8, 0)
 #  define _GL_ATTR_nothrow _GL_GNUC_PREREQ (3, 3)
 #  define _GL_ATTR_packed _GL_GNUC_PREREQ (2, 7)
 #  define _GL_ATTR_pure _GL_GNUC_PREREQ (2, 96)
-#  define _GL_ATTR_reproducible 0 /* not yet supported, as of GCC 14 */
+#  define _GL_ATTR_reproducible _GL_GNUC_PREREQ (15, 1)
 #  define _GL_ATTR_returns_nonnull _GL_GNUC_PREREQ (4, 9)
 #  define _GL_ATTR_sentinel _GL_GNUC_PREREQ (4, 0)
-#  define _GL_ATTR_unsequenced 0 /* not yet supported, as of GCC 14 */
+#  define _GL_ATTR_unsequenced _GL_GNUC_PREREQ (15, 1)
 #  define _GL_ATTR_unused _GL_GNUC_PREREQ (2, 7)
 #  define _GL_ATTR_warn_unused_result _GL_GNUC_PREREQ (3, 4)
 # endif
@@ -666,6 +677,17 @@ AC_DEFUN([gl_COMMON_BODY], [
 # endif
 #endif
 
+/* _GL_ATTRIBUTE_NONNULL_IF_NONZERO (NP, NI) declares that the argument NP
+   (a pointer) must not be NULL if the argument NI (an integer) is != 0.  */
+/* Applies to: functions.  */
+#ifndef _GL_ATTRIBUTE_NONNULL_IF_NONZERO
+# if _GL_HAS_ATTRIBUTE (nonnull_if_nonzero)
+#  define _GL_ATTRIBUTE_NONNULL_IF_NONZERO(np, ni) __attribute__ ((__nonnull_if_nonzero__ (np, ni)))
+# else
+#  define _GL_ATTRIBUTE_NONNULL_IF_NONZERO(np, ni)
+# endif
+#endif
+
 /* _GL_ATTRIBUTE_NONSTRING declares that the contents of a character array is
    not meant to be NUL-terminated.  */
 /* Applies to: struct/union members and variables that are arrays of element
@@ -752,7 +774,9 @@ AC_DEFUN([gl_COMMON_BODY], [
    than _GL_ATTRIBUTE_PURE because the function need not return
    exactly once and can affect state addressed by its arguments.)
    See also <https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2956.htm> and
-   <https://stackoverflow.com/questions/76847905/>.  */
+   <https://stackoverflow.com/questions/76847905/>.
+   ATTENTION! Efforts are underway to change the meaning of this attribute.
+   See <https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3424.htm>.  */
 /* Applies to: functions, pointer to functions, function types.  */
 #ifndef _GL_ATTRIBUTE_REPRODUCIBLE
 /* This may be revisited when gcc and clang support [[reproducible]] or possibly
@@ -803,7 +827,9 @@ AC_DEFUN([gl_COMMON_BODY], [
    _GL_ATTRIBUTE_CONST because the function need not return exactly
    once and can depend on state addressed by its arguments.)
    See also <https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2956.htm> and
-   <https://stackoverflow.com/questions/76847905/>.  */
+   <https://stackoverflow.com/questions/76847905/>.
+   ATTENTION! Efforts are underway to change the meaning of this attribute.
+   See <https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3424.htm>.  */
 /* Applies to: functions, pointer to functions, function types.  */
 #ifndef _GL_ATTRIBUTE_UNSEQUENCED
 /* This may be revisited when gcc and clang support [[unsequenced]] or possibly
@@ -851,7 +877,7 @@ AC_DEFUN([gl_COMMON_BODY], [
 # if __clang_major__ >= 15
 #  define _GL_ATTRIBUTE_CAPABILITY_TYPE(concept) \
      __attribute__ ((__capability__ (concept)))
-#else
+# else
 #  define _GL_ATTRIBUTE_CAPABILITY_TYPE(concept)
 # endif
 #endif
@@ -921,8 +947,8 @@ AC_DEFUN([gl_COMMON_BODY], [
      -1 if n1 < n2
    The naïve code   (n1 > n2 ? 1 : n1 < n2 ? -1 : 0)  produces a conditional
    jump with nearly all GCC versions up to GCC 10.
-   This variant     (n1 < n2 ? -1 : n1 > n2)  produces a conditional with many
-   GCC versions up to GCC 9.
+   This variant     (n1 < n2 ? -1 : n1 > n2)  produces a conditional jump with
+   many GCC versions up to GCC 9.
    The better code  (n1 > n2) - (n1 < n2)  from Hacker's Delight § 2-9
    avoids conditional jumps in all GCC versions >= 3.4.  */
 #define _GL_CMP(n1, n2) (((n1) > (n2)) - ((n1) < (n2)))
@@ -1299,7 +1325,7 @@ AC_DEFUN([gl_CC_ALLOW_WARNINGS],
   AC_REQUIRE([AC_PROG_CC])
   AC_CACHE_CHECK([for C compiler option to allow warnings],
     [gl_cv_cc_wallow],
-    [rm -f conftest*
+    [rm -fr conftest*
      echo 'int dummy;' > conftest.c
      AC_TRY_COMMAND([${CC-cc} $CFLAGS $CPPFLAGS -c conftest.c 2>conftest1.err]) >/dev/null
      AC_TRY_COMMAND([${CC-cc} $CFLAGS $CPPFLAGS -Wno-error -c conftest.c 2>conftest2.err]) >/dev/null
@@ -1312,7 +1338,7 @@ AC_DEFUN([gl_CC_ALLOW_WARNINGS],
      else
        gl_cv_cc_wallow=none
      fi
-     rm -f conftest*
+     rm -fr conftest*
     ])
   case "$gl_cv_cc_wallow" in
     none) GL_CFLAG_ALLOW_WARNINGS='' ;;
@@ -1330,7 +1356,7 @@ AC_DEFUN([gl_CXX_ALLOW_WARNINGS],
   if test -n "$CXX" && test "$CXX" != no; then
     AC_CACHE_CHECK([for C++ compiler option to allow warnings],
       [gl_cv_cxx_wallow],
-      [rm -f conftest*
+      [rm -fr conftest*
        echo 'int dummy;' > conftest.cc
        AC_TRY_COMMAND([${CXX-c++} $CXXFLAGS $CPPFLAGS -c conftest.cc 2>conftest1.err]) >/dev/null
        AC_TRY_COMMAND([${CXX-c++} $CXXFLAGS $CPPFLAGS -Wno-error -c conftest.cc 2>conftest2.err]) >/dev/null
@@ -1343,7 +1369,7 @@ AC_DEFUN([gl_CXX_ALLOW_WARNINGS],
        else
          gl_cv_cxx_wallow=none
        fi
-       rm -f conftest*
+       rm -fr conftest*
       ])
     case "$gl_cv_cxx_wallow" in
       none) GL_CXXFLAG_ALLOW_WARNINGS='' ;;
@@ -1537,13 +1563,25 @@ AC_DEFUN([gl_CHECK_FUNCS_CASE_FOR_MACOS],
              if test $[ac_cv_func_][$1] = yes; then
                [gl_cv_onwards_func_][$1]=yes
              else
+               dnl This is a bit complicated, because here we need the behaviour
+               dnl of AC_CHECK_DECL before the
+               dnl commit e1bbc9b93cdff61d70719c224b37970e065008bb (2025-05-26).
+               [ac_cv_have_decl_][$1][_saved]="$[ac_cv_have_decl_][$1]"
                unset [ac_cv_have_decl_][$1]
+               ac_c_future_darwin_options_saved="$ac_c_future_darwin_options"
+               ac_cxx_future_darwin_options_saved="$ac_cxx_future_darwin_options"
+               ac_c_future_darwin_options=
+               ac_cxx_future_darwin_options=
                AC_CHECK_DECL([$1], , , [$2])
+               ac_c_future_darwin_options="$ac_c_future_darwin_options_saved"
+               ac_cxx_future_darwin_options="$ac_cxx_future_darwin_options_saved"
                if test $[ac_cv_have_decl_][$1] = yes; then
                  [gl_cv_onwards_func_][$1]='future OS version'
                else
                  [gl_cv_onwards_func_][$1]=no
                fi
+               [ac_cv_have_decl_][$1]="$[ac_cv_have_decl_][$1][_saved]"
+               unset [ac_cv_have_decl_][$1][_saved]
              fi
            else
              AC_CHECK_FUNC([$1])
@@ -1596,7 +1634,7 @@ dnl
 dnl This macro sets two variables:
 dnl   - gl_cv_onwards_func_<func>   to yes / no / "future OS version"
 dnl   - ac_cv_func_<func>           to yes / no / no
-dnl The first variable allows to distinguish all three cases.
+dnl The first variable allows distinguishing all three cases.
 dnl The second variable is set, so that an invocation
 dnl   gl_CHECK_FUNCS_ANDROID([func], [[#include <foo.h>]])
 dnl can be used as a drop-in replacement for
@@ -1649,7 +1687,7 @@ dnl
 dnl This macro sets two variables:
 dnl   - gl_cv_onwards_func_<func>   to yes / no / "future OS version"
 dnl   - ac_cv_func_<func>           to yes / no / no
-dnl The first variable allows to distinguish all three cases.
+dnl The first variable allows distinguishing all three cases.
 dnl The second variable is set, so that an invocation
 dnl   gl_CHECK_FUNCS_MACOS([func], [[#include <foo.h>]])
 dnl can be used as a drop-in replacement for
