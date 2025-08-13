@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <termios.h>
@@ -301,6 +302,29 @@ int copy_part(FILE *fin, FILE *fout, long start, long length)
 	}
 
 	return 0;
+}
+
+int shm_tmpfile_fd(size_t size)
+{
+	char name[64];
+	snprintf(name, sizeof(name), "/tmpshm-%d-%ld", getpid(), random());
+
+	int fd = shm_open(name, O_CREAT | O_EXCL | O_RDWR, 0600);
+	if (fd == -1) {
+		perror("shm_open");
+		return -1;
+	}
+
+	if (ftruncate(fd, size) == -1) {
+		perror("ftruncate");
+		close(fd);
+		shm_unlink(name);
+		return -1;
+	}
+
+	shm_unlink(name);
+
+	return fd;
 }
 
 #endif /* _WS63_FLASH_IO_H_ */

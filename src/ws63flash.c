@@ -20,6 +20,7 @@
 
 #include "baud.h"
 #include "ws63defs.h"
+#include "ws63sign.h"
 #include "ymodem.h"
 #include "fwpkg.h"
 #include "io.h"
@@ -40,6 +41,8 @@
 #include "libgen.h"
 #include "argp.h"
 
+#include "blob/ws63_loaderboot_signed.h"
+
 /* Argument Processing */
 
 const char	*argp_program_version	  =
@@ -53,6 +56,7 @@ static char	doc[]	   = PACKAGE " -- flashing utility for Hisilicon WS63";
 static char	args_doc[] =
 	"--flash TTY FWPKG [BIN...]\n"
 	"--write TTY LOADERBOOT [BIN@ADDR...]\n"
+	"--write-program TTY BIN\n"
 	"--erase TTY FWPKG";
 
 static struct argp_option options[] = {
@@ -62,6 +66,8 @@ static struct argp_option options[] = {
 	 "erase the flash memory", 0},
 	{"write", 'w', 0, 0,
 	 "write bin(s) to specific address", 0},
+	{"write-program", 2, 0, 0,
+	 "write a machine code binary", 0},
 
 	{"baud", 'b', "BAUDRATE", 0,
 	 "set the flashing serial baudrate", 1},
@@ -123,6 +129,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case 'f':
 	case 'w':
 	case 'e':
+	case 2:
 		if (args->verb)
 			argp_usage(state); /* Verb already set, Bail out */
 		args->verb = key;
@@ -130,7 +137,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case ARGP_KEY_ARG:
 		if ((args->verb == 'f' && state->arg_num >= MAX_PARTITION_CNT)
 		    || (args->verb == 'w' && state->arg_num >= MAX_PARTITION_CNT)
-		    || (args->verb == 'e' && state->arg_num > 1))
+		    || (args->verb == 'e' && state->arg_num > 1)
+		    || (args->verb == 2   && state->arg_num > 1))
 			argp_usage(state);
 		args->args[state->arg_num] = arg;
 		break;
@@ -138,7 +146,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		args->args_cnt = state->arg_num;
 		if ((args->verb == 'f' && state->arg_num < 2)
 		    || (args->verb == 'w' && state->arg_num < 3)
-		    || (args->verb == 'e' && state->arg_num < 2))
+		    || (args->verb == 'e' && state->arg_num < 2)
+		    || (args->verb == 2   && state->arg_num < 2))
 			argp_usage(state);
 		break;
 	default:
@@ -674,6 +683,174 @@ int verb_erase(int fd) {
 	return 0;
 }
 
+int verb_write_prog(int fd) {
+	struct ws63sign_ctx ctx = { 0 };
+	time_t t0;
+	int ret;
+
+	/* Parsing input arguments */
+	FILE	*binf	= fopen(arguments.args[1], "r");
+	size_t	 binlen = 0;
+
+	if (!binf) {
+		perror(arguments.args[1]);
+		return 1;
+	}
+
+	fseek(binf, 0, SEEK_END);
+	binlen = ftell(binf);
+	fseek(binf, 0, SEEK_SET);
+
+	int bootfd = -1, outfd = -1;
+
+	bootfd = shm_tmpfile_fd(ws63_loaderboot_signed_len);
+	outfd = shm_tmpfile_fd(((binlen + 15) & ~15) + sizeof(ctx.buf));
+	if (bootfd < 0 || outfd < 0)
+		return 1;
+
+	FILE	*bootf = fdopen(bootfd, "w+");
+	FILE	*outf  = fdopen(outfd, "w+");
+
+	checked_fwrite(ws63_loaderboot_signed_bin, 1, ws63_loaderboot_signed_len,
+		       bootf);
+	fseek(bootf, 0, SEEK_SET);
+
+	{
+		ws63sign_init(&ctx);
+
+		unsigned char buf[4096] = { 0 };
+		size_t read_len = 0;
+
+		checked_fwrite(ctx.buf, 1, sizeof(ctx.buf), outf);
+
+		while ((read_len = fread(buf, 1, sizeof(buf), binf)) > 0) {
+			ws63sign_feed(&ctx, buf, read_len);
+			checked_fwrite(buf, 1, read_len, outf);
+		}
+
+		size_t padding = ws63sign_finalize(&ctx);
+		unsigned char nil128[16] = { 0 };
+		checked_fwrite(nil128, 1, padding, outf);
+
+		fseek(outf, 0, SEEK_SET);
+		checked_fwrite(ctx.buf, 1, sizeof(ctx.buf), outf);
+	}
+
+	/* Stage 1: Flash loaderboot */
+
+	/* Handshake to enter YModem Mode */
+
+	printf("Waiting for device reset...\n");
+	t0 = time(NULL);
+	while (1) {
+		struct cmddef handshake = WS63E_FLASHINFO[CMD_HANDSHAKE];
+		uint8_t buf[32];
+		int len;
+
+		if (!arguments.late_baud && arguments.baud != 115200)
+			*((uint32_t *) &handshake.dat) = htole32(arguments.baud);
+
+		if (ws63_send_cmddef(fd, handshake,
+				     (arguments.verbose > 2) ? 3 : 0))
+			return EXIT_FAILURE;
+
+		if (difftime(time(NULL), t0) > RESET_TIMEOUT) {
+			errno = ETIMEDOUT;
+			perror("Waiting for device reset");
+			return 1;
+		}
+
+		len = read(fd, buf, 32);
+		if (len == 0) continue;
+		if (len < 0) {
+			perror("read");
+			return EXIT_FAILURE;
+		}
+
+		/* ACK Sequence, Command 0xE1 */
+		char ack[] = "\xEF\xBE\xAD\xDE\x0C\x00\xE1\x1E\x5A\x00";
+		uint8_t *needle = NULL;
+
+		needle = memmem(buf, len, ack, sizeof(ack)-1);
+		if (needle) {
+			if (!arguments.late_baud && arguments.baud != 115200)
+				uart_open(&fd, NULL, arguments.baud);
+			printf("Establishing ymodem session...\n");
+			break;
+		}
+	}
+
+	/* Entered YModem Mode, Xfer loaderBoot */
+
+	fseek(bootf, 0, SEEK_SET);
+
+	ret = ymodem_xfer(fd, bootf,
+			  "root_loaderboot_sign.bin",
+			  ws63_loaderboot_signed_len,
+			  arguments.verbose);
+	if (ret < 0)
+		return EXIT_FAILURE;
+
+	uart_read_until_magic(fd, arguments.verbose);
+
+	/* Set baud if neccessary */
+
+	if (arguments.late_baud && arguments.baud != 115200) {
+		printf("Switching baud... ");
+		fflush(stdout);
+
+		struct cmddef baudcmd = WS63E_FLASHINFO[CMD_SETBAUDR];
+		*((uint32_t *) baudcmd.dat) = htole32(arguments.baud);
+
+		ret = ws63_send_cmddef(fd, baudcmd, arguments.verbose);
+		if (ret < 0)
+			return EXIT_FAILURE;
+
+		uart_read_until_magic(fd, arguments.verbose);
+		uart_open(&fd, NULL, arguments.baud);
+
+		printf("%d\n", arguments.baud);
+		uart_read_until_magic(fd, arguments.verbose);
+	}
+
+	/* Xfer other files */
+	fseek(outf, 0, SEEK_SET);
+
+        {
+		struct cmddef cmd = WS63E_FLASHINFO[CMD_DOWNLOADI];
+
+		ssize_t eras_size = -1;
+		eras_size = ceil((ctx.len + sizeof(ctx.buf))/8192.0)*0x2000;
+
+		*((uint32_t *) (cmd.dat))     = htole32(0x230000);
+		*((uint32_t *) (cmd.dat + 4)) = htole32(ctx.len + sizeof(ctx.buf));
+		*((uint32_t *) (cmd.dat + 8)) = htole32(eras_size);
+
+		if (ws63_send_cmddef(fd, cmd, arguments.verbose) < 0)
+			return EXIT_FAILURE;
+
+		uart_read_until_magic(fd, arguments.verbose);
+
+		ret = ymodem_xfer(fd, outf,
+				  "ws63flash_prog",
+				  ctx.len + sizeof(ctx.buf),
+				  arguments.verbose);
+		if (ret < 0)
+			return EXIT_FAILURE;
+
+		/*
+		  MCU won't respond if cmd followed immediately by ymodem.
+		  Put 100ms delay here to prevent stale.
+		*/
+		usleep(100000);
+	}
+
+	printf("Done. Reseting device...\n");
+	if (ws63_poll_reset(fd, arguments.verbose) < 0)
+		perror("ws63_poll_reset");
+	return 0;
+}
+
 int main (int argc, char **argv)
 {
 	time_t t0;
@@ -718,6 +895,9 @@ int main (int argc, char **argv)
 		break;
 	case 'e':
 		ret = verb_erase(fd);
+		break;
+	case 2:
+		ret = verb_write_prog(fd);
 		break;
 	default:
 		argp_help(&argp, stderr, ARGP_HELP_SHORT_USAGE, PACKAGE_NAME);

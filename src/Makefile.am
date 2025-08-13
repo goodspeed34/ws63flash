@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = subdir-objects
 AM_CPPFLAGS = -I$(top_srcdir)/lib
 
 bin_PROGRAMS = ws63flash ws63fwpkg ws63sign
-ws63flash_SOURCES = ws63flash.c
+ws63flash_SOURCES = ws63flash.c blob/ws63_loaderboot_signed.c
 ws63flash_LDADD = $(top_builddir)/lib/libgnu.a
 
 ws63fwpkg_SOURCES = ws63fwpkg.c
