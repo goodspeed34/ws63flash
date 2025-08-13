@@ -1,4 +1,40 @@
+2025-08-13  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	{man/src}/ws63flash.c: Make erase takes only TTY, using default loaderboot
+
+	Add support for ws63flash machine code flashing
+
+	m4: Update Gnulib
+
+	lib: Update Gnulib
+
+	{.github/workflows/cibuild.yml}: Add target for newly added binaries
+
+	man/{Makefile.am,ws63fwpkg.1}: Add documentation for ws63fwpkg
+
+	Add ws63sign - machine code signing tool for Hisilicon WS63
+
+2025-08-01  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	{lib,m4,build-aux}: Upgrade gnulib to 20250729, Introduce crypto/sha256
+
+	src/blob: add ws63 loaderboot blob
+
+2025-07-03  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	src/ws63fwpkg.c: fix the problem that -o option doesnt work
+
+2025-05-19  Gong Zhile  <gongzl@stu.hebust.edu.cn>
+
+	ws63fwpkg.c: add ws63 fwpkg manipulation utility
+
+	INSTALL: 移除多余的 INSTALL 文件
+
+	src/baud.h: fix wrong baudrate check for 921600 bps
+
 2025-01-26  William Goodspeed  <goodspeed@anche.no>
+
+	Prepare for 0.2.3 release
 
 	Merge branch 'macos-any-baudrate' of https://github.com/goodspeed34/ws63flash
 

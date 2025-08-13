@@ -67,3 +67,5 @@ src/ws63flash
 src/ws63fwpkg
 src/ws63sign
 lib/
+
+.dirstamp

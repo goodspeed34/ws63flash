@@ -11,4 +11,4 @@ ws63fwpkg_LDADD = $(top_builddir)/lib/libgnu.a
 ws63sign_SOURCES = ws63sign.c
 ws63sign_LDADD = $(top_builddir)/lib/libgnu.a
 
-dist_noinst_HEADERS = ws63defs.h io.h ymodem.h fwpkg.h baud.h
+dist_noinst_HEADERS = ws63sign.h ws63defs.h io.h ymodem.h fwpkg.h baud.h blob/ws63_loaderboot_signed.h

@@ -1,6 +1,16 @@
 News for ws63flash
 ====================
 
+Version 0.3.1 (2025-08-13)
+----------------------------
+* Fully Equipped
+
+Major New Features:
+-------------------
+* Support injecting binaries to a fwpkg.
+* Support signing/flashing a program machine code.
+* Support erasing without providing a loaderboot bin.
+
 Version 0.2.3 (2025-01-26)
 ----------------------------
 * Yisi
