@@ -22,7 +22,7 @@ jobs:
           CC="gcc -static" ./configure
           make
           mkdir ws63flash
-          cp src/ws63flash ws63flash
+          cp src/{ws63flash,ws63fwpkg,ws63sign} ws63flash
           cp /usr/bin/msys-2.0.dll ws63flash
       - uses: actions/upload-artifact@v4.4.0
         with:
@@ -46,9 +46,11 @@ jobs:
           echo "ws63flash - flashing utility for Hisilicon WS63" > description-pak
           checkinstall --default --install=no --fstrans=yes --pkgname=ws63flash --pkgversion="$(cat .version)" --pkglicense=GPLv3 --arch=amd64 --pkgsource='https://codeberg.org/goodspeed/ws63flash' --maintainer='gongzl@stu.hebust.edu.cn' -D
           cp src/ws63flash ws63flash-static
+          cp src/ws63sign  ws63sign-static
+          cp src/ws63fwpkg ws63fwpkg-static
       - uses: actions/upload-artifact@v4.4.0
         with:
           name: ws63flash-linux-musl-amd64
           path: |
-            ws63flash-static
+            *-static
             *.deb
