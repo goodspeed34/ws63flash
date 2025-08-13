@@ -137,7 +137,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case ARGP_KEY_ARG:
 		if ((args->verb == 'f' && state->arg_num >= MAX_PARTITION_CNT)
 		    || (args->verb == 'w' && state->arg_num >= MAX_PARTITION_CNT)
-		    || (args->verb == 'e' && state->arg_num > 1)
+		    || (args->verb == 'e' && state->arg_num > 0)
 		    || (args->verb == 2   && state->arg_num > 1))
 			argp_usage(state);
 		args->args[state->arg_num] = arg;
@@ -146,7 +146,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		args->args_cnt = state->arg_num;
 		if ((args->verb == 'f' && state->arg_num < 2)
 		    || (args->verb == 'w' && state->arg_num < 3)
-		    || (args->verb == 'e' && state->arg_num < 2)
+		    || (args->verb == 'e' && state->arg_num < 1)
 		    || (args->verb == 2   && state->arg_num < 2))
 			argp_usage(state);
 		break;
@@ -589,27 +589,18 @@ int verb_erase(int fd) {
 	time_t t0;
 	int ret;
 
-	/* Stage 0: Reading FWPKG file & Locate reuqired bin */
-	FILE *fw = fopen(arguments.args[1], "r");
-	if (!fw) {
-		perror("fopen");
-		return EXIT_FAILURE;
-	}
+	/* Stage 0: Build loaderboot */
 
-	struct fwpkg_header *header = fwpkg_read_header(fw);
-	if (!header) return EXIT_FAILURE;
+	int bootfd = -1;
 
-	struct fwpkg_bin_info *bins = fwpkg_read_bin_infos(fw, header);
-	if (!bins) return EXIT_FAILURE;
+	bootfd = shm_tmpfile_fd(ws63_loaderboot_signed_len);
+	if (bootfd < 0)
+		return 1;
 
-	struct fwpkg_bin_info *loaderboot = NULL;
-	for (int i = 0; i < header->cnt; i++)
-		if (bins[i].type_2 == 0)
-			loaderboot = &bins[i];
-	if (!loaderboot) {
-		fprintf(stderr, "Required loaderboot not found in fwpkg!\n");
-		return EXIT_FAILURE;
-	}
+	FILE	*bootf = fdopen(bootfd, "w+");
+	checked_fwrite(ws63_loaderboot_signed_bin, 1, ws63_loaderboot_signed_len,
+		       bootf);
+	fseek(bootf, 0, SEEK_SET);
 
 	/* Stage 1: Flash loaderboot */
 
@@ -657,14 +648,11 @@ int verb_erase(int fd) {
 
 	/* Entered YModem Mode, Xfer loaderBoot */
 
-	if (fseek(fw, loaderboot->offset, SEEK_SET) < 0) {
-		perror("fseek");
-		return EXIT_FAILURE;
-	}
+	fseek(bootf, 0, SEEK_SET);
 
-	ret = ymodem_xfer(fd, fw,
-			  loaderboot->name,
-			  loaderboot->length,
+	ret = ymodem_xfer(fd, bootf,
+			  "root_loaderboot_sign.bin",
+			  ws63_loaderboot_signed_len,
 			  arguments.verbose);
 	if (ret < 0)
 		return EXIT_FAILURE;
