@@ -1,5 +1,5 @@
 /* An fseeko() function that, together with fflush(), is POSIX compliant.
-   Copyright (C) 2007-2025 Free Software Foundation, Inc.
+   Copyright (C) 2007-2026 Free Software Foundation, Inc.
 
    This file is free software: you can redistribute it and/or modify
    it under the terms of the GNU Lesser General Public License as
@@ -56,7 +56,7 @@ fseeko (FILE *fp, off_t offset, int whence)
       && fp_->_IO_write_ptr == fp_->_IO_write_base
       && fp_->_IO_save_base == NULL)
 #elif defined __sferror || defined __DragonFly__ || defined __ANDROID__
-  /* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
+  /* FreeBSD, NetBSD, OpenBSD <= 7.7, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
 # if defined __SL64 && defined __SCLE /* Cygwin */
   if ((fp->_flags & __SL64) == 0)
     {
@@ -84,7 +84,7 @@ fseeko (FILE *fp, off_t offset, int whence)
 #elif defined __minix               /* Minix */
   if (fp_->_ptr == fp_->_buf
       && (fp_->_ptr == NULL || fp_->_count == 0))
-#elif defined _IOERR                /* AIX, HP-UX, IRIX, OSF/1, Solaris, OpenServer, UnixWare, mingw, MSVC, NonStop Kernel, OpenVMS */
+#elif defined _IOERR                /* AIX, HP-UX, Solaris, OpenServer, UnixWare, mingw, MSVC, NonStop Kernel, OpenVMS */
   if (fp_->_ptr == fp_->_base
       && (fp_->_ptr == NULL || fp_->_cnt == 0))
 #elif defined __UCLIBC__            /* uClibc */
@@ -104,6 +104,9 @@ fseeko (FILE *fp, off_t offset, int whence)
 #elif defined EPLAN9                /* Plan9 */
   if (fp->rp == fp->buf
       && fp->wp == fp->buf)
+#elif defined __OpenBSD__ && !defined __sferror /* OpenBSD >= 7.8 */
+  /* fseeko and fflush work as advertised.  */
+  if (0)
 #elif FUNC_FFLUSH_STDIN < 0 && 200809 <= _POSIX_VERSION
   /* Cross-compiling to some other system advertising conformance to
      POSIX.1-2008 or later.  Assume fseeko and fflush work as advertised.
@@ -121,7 +124,7 @@ fseeko (FILE *fp, off_t offset, int whence)
       if (pos == -1)
         {
 #if defined __sferror || defined __DragonFly__ || defined __ANDROID__
-          /* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
+          /* FreeBSD, NetBSD, OpenBSD <= 7.7, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
           fp_->_flags &= ~__SOFF;
 #endif
           return -1;
@@ -132,7 +135,7 @@ fseeko (FILE *fp, off_t offset, int whence)
       fp_->_flags &= ~_IO_EOF_SEEN;
       fp_->_offset = pos;
 #elif defined __sferror || defined __DragonFly__ || defined __ANDROID__
-      /* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
+      /* FreeBSD, NetBSD, OpenBSD <= 7.7, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
 # if defined __CYGWIN__ || (defined __NetBSD__ && __NetBSD_Version__ >= 600000000) || defined __minix
       /* fp_->_offset is typed as an integer.  */
       fp_->_offset = pos;
@@ -155,7 +158,7 @@ fseeko (FILE *fp, off_t offset, int whence)
       fp_->_flags &= ~__SEOF;
 #elif defined __EMX__               /* emx+gcc */
       fp->_flags &= ~_IOEOF;
-#elif defined _IOERR                /* AIX, HP-UX, IRIX, OSF/1, Solaris, OpenServer, UnixWare, mingw, MSVC, NonStop Kernel, OpenVMS */
+#elif defined _IOERR                /* AIX, HP-UX, Solaris, OpenServer, UnixWare, mingw, MSVC, NonStop Kernel, OpenVMS */
       fp_->_flag &= ~_IOEOF;
 #elif defined __MINT__              /* Atari FreeMiNT */
       fp->__offset = pos;

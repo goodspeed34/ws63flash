@@ -54,3 +54,6 @@
 /stat.m4
 /sys_uio_h.m4
 /ungetc.m4
+/fseterr.m4
+/gettext_h.m4
+/stringeq.m4

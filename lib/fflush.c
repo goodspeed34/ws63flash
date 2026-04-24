@@ -1,5 +1,5 @@
 /* fflush.c -- allow flushing input streams
-   Copyright (C) 2007-2025 Free Software Foundation, Inc.
+   Copyright (C) 2007-2026 Free Software Foundation, Inc.
 
    This file is free software: you can redistribute it and/or modify
    it under the terms of the GNU Lesser General Public License as
@@ -53,7 +53,7 @@ static void
 clear_ungetc_buffer (FILE *fp)
 {
 # if defined __sferror || defined __DragonFly__ || defined __ANDROID__
-  /* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
+  /* FreeBSD, NetBSD, OpenBSD <= 7.7, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
   if (HASUB (fp))
     {
       fp_->_p += fp_->_r;
@@ -65,7 +65,7 @@ clear_ungetc_buffer (FILE *fp)
       fp->_ungetc_count = 0;
       fp->_rcount = - fp->_rcount;
     }
-# elif defined _IOERR               /* Minix, AIX, HP-UX, IRIX, OSF/1, Solaris, OpenServer, UnixWare, mingw, MSVC, NonStop Kernel, OpenVMS */
+# elif defined _IOERR               /* Minix, AIX, HP-UX, Solaris, OpenServer, UnixWare, mingw, MSVC, NonStop Kernel, OpenVMS */
   /* Nothing to do.  */
 # else                              /* other implementations */
   fseeko (fp, 0, SEEK_CUR);
@@ -78,7 +78,7 @@ clear_ungetc_buffer (FILE *fp)
 /* GNU libc, BeOS, Haiku, Linux libc5 */
 
 # if (defined __sferror || defined __DragonFly__ || defined __ANDROID__) && defined __SNPT
-/* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
+/* FreeBSD, NetBSD, OpenBSD <= 7.7, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
 
 static int
 disable_seek_optimization (FILE *fp)
@@ -101,7 +101,7 @@ update_fpos_cache (_GL_ATTRIBUTE_MAYBE_UNUSED FILE *fp,
                    _GL_ATTRIBUTE_MAYBE_UNUSED off_t pos)
 {
 #  if defined __sferror || defined __DragonFly__ || defined __ANDROID__
-  /* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
+  /* FreeBSD, NetBSD, OpenBSD <= 7.7, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
 #   if defined __CYGWIN__ || defined __ANDROID__
   /* fp_->_offset is typed as an integer.  */
   fp_->_offset = pos;
@@ -206,7 +206,7 @@ rpl_fflush (FILE *stream)
     }
 
 # if (defined __sferror || defined __DragonFly__ || defined __ANDROID__) && defined __SNPT
-    /* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
+    /* FreeBSD, NetBSD, OpenBSD <= 7.7, DragonFly, Mac OS X, Cygwin, Minix 3, Android */
 
     {
       /* Disable seek optimization for the next fseeko call.  This tells the

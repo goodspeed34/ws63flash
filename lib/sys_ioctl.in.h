@@ -1,5 +1,5 @@
 /* Substitute for and wrapper around <sys/ioctl.h>.
-   Copyright (C) 2008-2025 Free Software Foundation, Inc.
+   Copyright (C) 2008-2026 Free Software Foundation, Inc.
 
    This file is free software: you can redistribute it and/or modify
    it under the terms of the GNU Lesser General Public License as
@@ -76,7 +76,6 @@ _GL_CXXALIASWARN (ioctl);
 #  define ioctl ioctl_used_without_requesting_gnulib_module_ioctl
 # endif
 #elif defined GNULIB_POSIXCHECK
-# undef ioctl
 # if HAVE_RAW_DECL_IOCTL
 _GL_WARN_ON_USE (ioctl, "ioctl does not portably work on sockets - "
                  "use gnulib module ioctl for portability");

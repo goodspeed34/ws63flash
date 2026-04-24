@@ -1,5 +1,5 @@
 /* Pausing execution of the current thread.
-   Copyright (C) 2007, 2009-2025 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2009-2026 Free Software Foundation, Inc.
    Written by Bruno Haible <bruno@clisp.org>, 2007.
 
    This file is free software: you can redistribute it and/or modify
@@ -58,9 +58,8 @@ rpl_sleep (unsigned int seconds)
   const unsigned int limit = 24 * 24 * 60 * 60;
   while (limit < seconds)
     {
-      unsigned int result;
       seconds -= limit;
-      result = sleep (limit);
+      unsigned int result = sleep (limit);
       if (result)
         return seconds + result;
     }

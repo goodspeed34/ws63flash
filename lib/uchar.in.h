@@ -1,5 +1,5 @@
 /* <uchar.h> substitute - 16-bit and 32-bit wide character types.
-   Copyright (C) 2019-2025 Free Software Foundation, Inc.
+   Copyright (C) 2019-2026 Free Software Foundation, Inc.
 
    This file is free software: you can redistribute it and/or modify
    it under the terms of the GNU Lesser General Public License as
@@ -28,7 +28,7 @@
 @PRAGMA_COLUMNS@
 
 /* The include_next requires a split double-inclusion guard.  */
-#if @HAVE_UCHAR_H@
+#if (defined __cplusplus ? @CXX_HAVE_UCHAR_H@ : @HAVE_UCHAR_H@)
 # if defined __HAIKU__
 /* Work around <https://dev.haiku-os.org/ticket/17040>.  */
 #  include <stdint.h>
@@ -83,7 +83,7 @@
 _GL_INLINE_HEADER_BEGIN
 
 
-#if !(@HAVE_UCHAR_H@ || (defined __cplusplus && @CXX_HAS_CHAR8_TYPE@))
+#if !(defined __cplusplus ? @CXX_HAVE_UCHAR_H@ || @CXX_HAS_CHAR8_TYPE@ : @HAVE_UCHAR_H@)
 
 /* An 8-bit variant of wchar_t.
    Note: This type is only mandated by ISO C 23 or newer, and it does
@@ -97,7 +97,7 @@ typedef unsigned char gl_char8_t;
 
 #endif
 
-#if !(@HAVE_UCHAR_H@ || (defined __cplusplus && @CXX_HAS_UCHAR_TYPES@))
+#if !(defined __cplusplus ? @CXX_HAVE_UCHAR_H@ || @CXX_HAS_UCHAR_TYPES@ : @HAVE_UCHAR_H@)
 
 /* A 16-bit variant of wchar_t.
    Note: This type is only mandated by ISO C 11 or newer.  In ISO C 23
@@ -112,7 +112,7 @@ typedef uint_least16_t gl_char16_t;
 
 #endif
 
-#if !(@HAVE_UCHAR_H@ || (defined __cplusplus && @CXX_HAS_UCHAR_TYPES@))
+#if !(defined __cplusplus ? @CXX_HAVE_UCHAR_H@ || @CXX_HAS_UCHAR_TYPES@ : @HAVE_UCHAR_H@)
 
 /* A 32-bit variant of wchar_t.
    Note: This type is only mandated by ISO C 11 or newer.  In ISO C 23
@@ -490,7 +490,6 @@ _GL_CXXALIAS_SYS (c32rtomb, size_t, (char *s, char32_t wc, mbstate_t *ps));
 _GL_CXXALIASWARN (c32rtomb);
 # endif
 #elif defined GNULIB_POSIXCHECK
-# undef c32rtomb
 # if HAVE_RAW_DECL_C32RTOMB
 _GL_WARN_ON_USE (c32rtomb, "c32rtomb is not portable - "
                  "use gnulib module c32rtomb for portability");
@@ -647,7 +646,6 @@ _GL_CXXALIAS_SYS (mbrtoc32, size_t,
 _GL_CXXALIASWARN (mbrtoc32);
 # endif
 #elif defined GNULIB_POSIXCHECK
-# undef mbrtoc32
 # if HAVE_RAW_DECL_MBRTOC32
 _GL_WARN_ON_USE (mbrtoc32, "mbrtoc32 is not portable - "
                  "use gnulib module mbrtoc32 for portability");
@@ -679,7 +677,6 @@ _GL_CXXALIAS_SYS (mbrtoc16, size_t,
 _GL_CXXALIASWARN (mbrtoc16);
 # endif
 #elif defined GNULIB_POSIXCHECK
-# undef mbrtoc16
 # if HAVE_RAW_DECL_MBRTOC16
 _GL_WARN_ON_USE (mbrtoc16, "mbrtoc16 is not portable - "
                  "use gnulib module mbrtoc16 for portability");

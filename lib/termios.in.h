@@ -1,5 +1,5 @@
 /* Substitute for and wrapper around <termios.h>.
-   Copyright (C) 2010-2025 Free Software Foundation, Inc.
+   Copyright (C) 2010-2026 Free Software Foundation, Inc.
 
    This file is free software: you can redistribute it and/or modify
    it under the terms of the GNU Lesser General Public License as
@@ -83,7 +83,6 @@ _GL_FUNCDECL_SYS (tcgetsid, pid_t, (int fd), );
 _GL_CXXALIAS_SYS (tcgetsid, pid_t, (int fd));
 _GL_CXXALIASWARN (tcgetsid);
 #elif defined GNULIB_POSIXCHECK
-# undef tcgetsid
 # if HAVE_RAW_DECL_TCGETSID
 _GL_WARN_ON_USE (tcgetsid, "tcgetsid is not portable - "
                  "use gnulib module tcgetsid for portability");
