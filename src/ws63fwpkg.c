@@ -134,7 +134,7 @@ int verb_build(int fd)
 	}
 
 	struct fwpkg_header header = {
-		.mgc = 0xefbeaddf,
+		.mgc = htole32(0xefbeaddf),
 		.cnt = 0,
 	};
 
@@ -168,37 +168,41 @@ int verb_build(int fd)
 			return EXIT_FAILURE;
 		}
 
-		struct fwpkg_bin_info *b = &bins[header.cnt];
+		struct fwpkg_bin_info *b = &bins[i];
 
-		b->type_2 = !!i;
-		b->length = st.st_size;
-		b->burn_addr = addr;
-		b->burn_size = st.st_size;
-		b->offset = offset;
+		b->type_2 = htole32(!!i);
+		b->length = htole32(st.st_size);
+		b->burn_addr = htole32(addr);
+		b->burn_size = htole32(st.st_size);
+		b->offset = htole32(offset);
 
 		strncpy(b->name, basename(arg), sizeof(b->name) - 1);
 
-		offset += b->length;
+		offset += st.st_size;
 		header.cnt++;
 	}
 
+	header.cnt = htole16(header.cnt);
+	header.len = htole32(offset);
+
 	uint8_t crcbuf[
 		sizeof(header) +
-		sizeof(struct fwpkg_bin_info) * header.cnt
+		sizeof(struct fwpkg_bin_info) * arguments.args_cnt
 	];
 
 	memcpy(crcbuf, &header, sizeof(header));
 	memcpy(crcbuf + sizeof(header),
 	       bins,
-	       sizeof(struct fwpkg_bin_info) * header.cnt);
+	       sizeof(struct fwpkg_bin_info) * arguments.args_cnt);
 
-	header.crc = crc16_xmodem(
+	header.crc = htole16(crc16_xmodem(
 		crcbuf + 6,
-		sizeof(struct fwpkg_bin_info) * header.cnt + 6
-	);
+		sizeof(struct fwpkg_bin_info) * arguments.args_cnt + 6
+	));
 
 	checked_fwrite(&header, sizeof(header), 1, outfw);
-	checked_fwrite(bins, sizeof(struct fwpkg_bin_info), header.cnt, outfw);
+	checked_fwrite(bins, sizeof(struct fwpkg_bin_info),
+		       arguments.args_cnt, outfw);
 
 	for (int i = 0; i < arguments.args_cnt; i++) {
 		FILE *f = fopen(arguments.args[i], "r");
@@ -207,7 +211,7 @@ int verb_build(int fd)
 			return EXIT_FAILURE;
 		}
 
-		if (copy_part(f, outfw, 0, bins[i].length))
+		if (copy_part(f, outfw, 0, le32toh(bins[i].length)))
 			return EXIT_FAILURE;
 
 		fclose(f);
