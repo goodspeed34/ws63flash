@@ -33,10 +33,10 @@ const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 static char doc[] = "ws63sign -- ws63 machine code signing utility"
 	" for Hisilicon WS63";
-static char args_doc[] = "INPUT [OUTPUT]";
+static char args_doc[] = "INPUT";
 
 static struct argp_option options[] = {
-	{"out", 'o', 0, 0, "specify the output file", 0},
+	{"out", 'o', "FILE", 0, "specify the output file", 0},
 	{0},
 };
 
@@ -59,6 +59,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		break;
 	case 'o':
 		args->outf = fopen(arg, "w");
+		break;
 	case ARGP_KEY_END:
 		if (!args->inf)
 			argp_usage(state);
