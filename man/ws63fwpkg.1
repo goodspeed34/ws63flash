@@ -1,8 +1,11 @@
-.TH WS63FLASH 1 "August 2025" "0.2.4"
+.TH WS63FLASH 1 "April 2026" "0.3.2"
 .SH NAME
 ws63fwpkg \- firmware manipulation tool for Hisilicon WS63
 
 .SH SYNOPSIS
+.B ws63flash
+[\fIOPTION...\fR] --build \fILOADERBOOT\fR [\fIBIN@ADDR...\fR]
+
 .B ws63fwpkg
 [\fIOPTION...\fR] --inject \fIFWPKG\fR [\fIBIN@ADDR\fR]
 
@@ -13,6 +16,9 @@ specify the output file (defaults to a.signed)
 
 .SH ACTIONS
 .TP
+.B \-b, --build
+build fwpkg from binaries
+
 .B \-i, --inject
 inject a binary to the fwpkg file
 
@@ -32,5 +38,5 @@ print program version
 Report bugs to <gongzl@stu.hebust.edu.cn>.
 
 .SH COPYRIGHT
-Copyright (C) 2025  Gong Zhile.
+Copyright (C) 2025-2026  Gong Zhile.
 This is free software; see the source for copying conditions.  There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
