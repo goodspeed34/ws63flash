@@ -53,9 +53,12 @@ static char doc[] = "ws63fwpkg -- firmware manipulation utility"
 	" for Hisilicon WS63";
 
 static char args_doc[] =
+	"--build FWPKG LOADERBOOT [BIN@ADDR...]\n"
 	"--inject FWPKG [BIN@ADDR...]";
 
 static struct argp_option options[] = {
+	{"build", 'b', 0, 0,
+	 "build fwpkg from binaries", 0},
 	{"inject", 'i', 0, 0,
 	 "inject bin files to a fwpkg", 0},
 	{"out", 'o', "FWPKG", 0,
@@ -76,6 +79,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	struct args *args = state->input;
 
 	switch (key) {
+	case 'b':
+		if (args->verb)
+			argp_usage(state);
+		args->verb = key;
+		break;
 	case 'o':
 		if (!arg)
 			argp_usage(state);
@@ -111,6 +119,103 @@ static struct argp argp = { options, parse_opt, args_doc, doc,
 	NULL, NULL, NULL };
 
 /* Main Entrance */
+
+int verb_build(int fd)
+{
+	if (arguments.args_cnt < 2) {
+		argp_help(&argp, stderr, ARGP_HELP_SHORT_USAGE, "ws63fwpkg");
+		return EXIT_FAILURE;
+	}
+
+	FILE *outfw = (fd == STDOUT_FILENO) ? stdout : fdopen(fd, "w+");
+	if (!outfw) {
+		perror("fdopen");
+		return EXIT_FAILURE;
+	}
+
+	struct fwpkg_header header = {
+		.mgc = 0xefbeaddf,
+		.cnt = 0,
+	};
+
+	struct fwpkg_bin_info bins[MAX_PARTITION_CNT] = {0};
+
+	size_t offset = sizeof(header);
+	offset += sizeof(struct fwpkg_bin_info) * (arguments.args_cnt);
+
+	for (int i = 0; i < arguments.args_cnt; i++) {
+		char *arg = arguments.args[i];
+		char *sep = strchr(arg, '@');
+		size_t addr = 0;
+
+		if (i > 0) {
+			if (!sep) {
+				fprintf(stderr, "Error: %s missing @addr\n", arg);
+				return EXIT_FAILURE;
+			}
+
+			*sep = '\0';
+
+			if (sscanf(sep + 1, "%zx", &addr) != 1) {
+				fprintf(stderr, "Error: invalid addr %s\n", sep + 1);
+				return EXIT_FAILURE;
+			}
+		}
+
+		struct stat st;
+		if (stat(arg, &st) < 0) {
+			perror(arg);
+			return EXIT_FAILURE;
+		}
+
+		struct fwpkg_bin_info *b = &bins[header.cnt];
+
+		b->type_2 = !!i;
+		b->length = st.st_size;
+		b->burn_addr = addr;
+		b->burn_size = st.st_size;
+		b->offset = offset;
+
+		strncpy(b->name, basename(arg), sizeof(b->name) - 1);
+
+		offset += b->length;
+		header.cnt++;
+	}
+
+	uint8_t crcbuf[
+		sizeof(header) +
+		sizeof(struct fwpkg_bin_info) * header.cnt
+	];
+
+	memcpy(crcbuf, &header, sizeof(header));
+	memcpy(crcbuf + sizeof(header),
+	       bins,
+	       sizeof(struct fwpkg_bin_info) * header.cnt);
+
+	header.crc = crc16_xmodem(
+		crcbuf + 6,
+		sizeof(struct fwpkg_bin_info) * header.cnt + 6
+	);
+
+	checked_fwrite(&header, sizeof(header), 1, outfw);
+	checked_fwrite(bins, sizeof(struct fwpkg_bin_info), header.cnt, outfw);
+
+	for (int i = 0; i < arguments.args_cnt; i++) {
+		FILE *f = fopen(arguments.args[i], "r");
+		if (!f) {
+			perror(arguments.args[i]);
+			return EXIT_FAILURE;
+		}
+
+		if (copy_part(f, outfw, 0, bins[i].length))
+			return EXIT_FAILURE;
+
+		fclose(f);
+	}
+
+	fclose(outfw);
+	return 0;
+}
 
 int verb_inject(int fd)
 {
@@ -257,6 +362,9 @@ int main(int argc, char **argv)
 	switch(arguments.verb) {
 	case 'i':
 		ret = verb_inject(arguments.outfd);
+		break;
+	case 'b':
+		ret = verb_build(arguments.outfd);
 		break;
 	default:
 		argp_help(&argp, stderr, ARGP_HELP_SHORT_USAGE, PACKAGE_NAME);
