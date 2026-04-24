@@ -317,6 +317,7 @@ int verb_inject(int fd)
 	new_header->crc = crc16_xmodem(buf+6,
 				       sizeof(struct fwpkg_bin_info)
 				       * new_header->cnt + 6);
+	new_header->len = outfwlen;
 
 	checked_fwrite(buf, sizeof(*header), 1, outfw);
 	checked_fwrite(buf + sizeof(*header), sizeof(*nb), new_header->cnt, outfw);
